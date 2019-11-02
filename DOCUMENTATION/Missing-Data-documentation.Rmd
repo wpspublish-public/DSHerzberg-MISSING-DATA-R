@@ -1,0 +1,166 @@
+---
+title: "Impute Missing Data with BLIMP"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Overview  
+
+This documents a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.
+
+The example is based on rating scale data, with items grouped into subscales, with a four-point ordinal response format.
+
+### Prepare data for BLIMP
+
+Input data should formatted with cases in rows and items in columns with a person ID column on the far left. Run the following code to restructure the input for BLIMP.
+
+```{r read_input, eval=FALSE}
+suppressMessages(library(here))
+suppressMessages(library(tidyverse))
+
+# SPM-P
+# prep data file for BLIMP
+spm_p <- suppressMessages(read_csv(here('INPUT-FILES/SPM-P-data.csv'))) %>% 
+  select(id, hom_i001:hom_i114) 
+  # Count NA accross all columns
+NA_count <- spm_p %>% summarise_all(list(~sum(is.na(.)))) %>%
+  mutate(
+    all_NA = rowSums(.[2:115]))
+# replace all NA with 999
+spm_p[is.na(spm_p)] <- 999
+# gather cols
+spm_gathered <- spm_p %>%
+  gather('item','response',-id) %>% 
+  group_by(id) %>% 
+  arrange(id) %>% 
+  mutate(
+    item = as.integer(str_sub(item, 6, 8)),
+    scale = as.integer(
+      case_when(
+      between(item, 1, 14) ~ 1,
+      between(item, 15, 30) ~ 2,
+      between(item, 31, 42) ~ 3,
+      between(item, 43, 65) ~ 4,
+      between(item, 66, 73) ~ 5,
+      between(item, 74, 87) ~ 6,
+      between(item, 88, 103) ~ 7,
+      between(item, 104, 114) ~ 8,
+      TRUE ~ NA_real_
+      )
+    )
+    )
+spm_head <- head(spm_gathered, 100L)
+# strip column names from df
+write_csv(spm_p, here('INPUT-FILES/SPM-P-data-BLIMP.csv'), col_names = F)
+write_csv(spm_gathered, here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), col_names = F)
+# keep col names
+write_csv(spm_head, here('INPUT-FILES/SPM-head.csv'))
+
+# dummy code item-scale assignment, relative to last item in each scale
+data <- read.table(here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), sep = ',')
+# data <- data[1:114,]
+dummies <- matrix(0, nrow = nrow(data), ncol = 114)
+
+
+for(i in 1:13){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 15:29){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 31:41){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 43:64){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 66:72){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 74:86){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 88:102){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 104:113){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+
+test <- cbind(data, dummies)
+colMeans(dummies)
+
+write.table(cbind(data, dummies), here('SPM.csv'), sep = ",", row.names = F, col.names = F)
+```
+
+<br>
+
+### Run BLIMP script on prepped data
+
+After processing in R, the input data has the following structure:
+
+* Left-most four columns are PersonID, item number, item response, numerical label for item-scale assignment
+* Al columns to the right of these four are dummy codes, in which each scale item is dummy coded relative to the last item in that scale
+
+###### THIS CODE CAN BE RUN IN BLIMP STUDIO
+```{r BLIMP, eval=FALSE}
+DATA: SPM.csv;
+VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4d23 s5d1-s5d8 s6d1-s6d14 s7d1-s7d16 s8d1-s8d11;
+ORDINAL: response;
+NOMINAL: scalenum;
+FIXED: scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10;
+CLUSTERID: id;
+MISSING: 999;
+MODEL: response ~ scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10 | scalenum;
+SEED: 90291;
+BURN: 1000; 
+ITERATIONS: 10;
+OPTIONS: estimates;
+# CHAINS: 4 processors 4;
+SAVE: separate = model4imp*.csv;
+```
+
+<br>
+
+###### COMMENTED SNIPPETS
+`VARIABLE` names to the right of `scalenum` are the dummy codes (d) for each of eight scales (s).
+```{r BLIMP, echo=1:2, eval=FALSE}
+```
+Variables on `NOMINAL` line are recoded into dummy codes at imputation.
+```{r BLIMP, echo=3:4, eval=FALSE}
+```
+`CLUSTERID` designates a multilevel (nested) design. In this example, on the input file, values of 'itemnum' are nested within each value of 'id'.
+```{r BLIMP, echo=5:6, eval=FALSE}
+```
+`MISSING` designates the missing data code. In this `MODEL`, response is regressed on the dummy-coded scale variables (created by `NOMINAL` command) and the dummy-coded item item variables (represented in columns in the input .csv). 
+
+The expression `| scalenum` allows the model to estimate individual differences for each scale. This is a flexible model in which the only assumption is that within-scale
+factor loadings (thetas) are identical. Items within scales can have unique means, and thetas can vary across scales and between persons.
+```{r BLIMP, echo=7:8, eval=FALSE}
+```
+Set `SEED` so that output is identical on each run. `BURN` runs 1000 iterations before saving the first imputed data set, to allow parameter estimates to stabilize. Number of `BURN` iterations needs to be recalibrated for each new data set by examining psr, plots. `ITERATIONS` conrols how many iterations are run after completing burn-in. 
+```{r BLIMP, echo=9:11, eval=FALSE}
+```
+`OPTIONS` requests parameter estimates for the analysis output. `CHAINS` is toggled off here, but it can be turned on for parallel (and potentially faster) processing. In this example, four chains would then be run, resulting in four imputed data sets. `SAVE: separate` indicates that imputations will be saved in separate files (this script is set up to yield only one imputed data set). The asterisk `*` is required so that BLIMP can distinguish multiple separate imputations with a numerical suffix.
+```{r BLIMP, echo=12:14, eval=FALSE}
+```
+

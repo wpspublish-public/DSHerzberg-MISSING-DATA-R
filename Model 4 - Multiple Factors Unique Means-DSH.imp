@@ -1,0 +1,30 @@
+# Structure of input data file: left-most columns are PersonID, item number, item response, numerical label for item-scale assignment
+# Remaining columns to the right of these four are dummy codes, in which each scale item is dummy coded relative to the last item in that scale
+# See R script for how dummy codes are created.
+DATA: SPM.csv;
+# Var names to the right of scalenum are the dummy codes (d) for each of eight scales (s)
+VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4d23 s5d1-s5d8 s6d1-s6d14 s7d1-s7d16 s8d1-s8d11;
+ORDINAL: response;
+# vars on NOMINAL line are recoded into dummy codes at imputation
+NOMINAL: scalenum;
+FIXED: scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10;
+# CLUSTERID designates a multilevel(nested) design, in this example, on the input file, values of 'itemnum' are nested within each value of 'id'
+# in R, this is accomplished with `tidyr::gather()`, and with id-itemum being the key-value pair.
+CLUSTERID: id;
+MISSING: 999;
+# In this MODEL, response is regressed on the dummy-coded scale vars (created by NOMINAL command) and dummy-coded item vars (represented in columns in input .csv).
+# The expression `| scalenum` allows the model to estimate individual differences for each scale. This is a flexible model in which the only assumption is that within-scale
+# factor loadings (thetas) are identical. Items within scales can have unique means, and thetas can vary accross scales and between persons.
+MODEL: response ~ scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10 | scalenum;
+# set SEED so that output is identical on each run.
+SEED: 90291;
+# BURN runs 1000 iterations before saving the first imputed data set. Burn-in number needs to be reset for each new data set by examining psr.
+BURN: 1000; 
+# 10 ITERATIONS are run after completing burn-in.
+ITERATIONS: 10;
+# 	output will include summaries of parameter estimates.
+OPTIONS: estimates;
+# CHAINS: 4 processors 4;
+# SAVE yields a single imputed data set with missing values estimated, for downstream analyses. Output data will include input dummy code columns, which need to be removed,
+# and output data will be in nested format, so needs to be transformed back to wide format using `tidyr::spread()`
+SAVE: separate = model4imp*.csv;
