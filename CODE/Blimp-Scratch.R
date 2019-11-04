@@ -52,4 +52,13 @@ goal[is.na(goal)] <- 999
 # strip column names from df
 write_csv(goal, here('Examples/10. Multiple Imputation/GOAL-data-BLIMP.csv'), col_names = F)
 
+spm_p_noMiss_tall <- suppressMessages(
+  read_csv(
+    (here('model4imp1.csv')), 
+  col_names = c('ID', 'item', 'response'))[1:3])
 
+spm_p_noMiss_tall <- suppressMessages(read_csv(here('model4imp1.csv'))[1:3]) 
+
+test <- spm_p %>% filter(id == 28013)
+test_noMiss <- spm_p_noMiss %>% filter(id == 28013)
+all.equal(test, test_noMiss)
