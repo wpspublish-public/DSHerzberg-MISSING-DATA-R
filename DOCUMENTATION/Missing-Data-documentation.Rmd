@@ -66,7 +66,14 @@ data <- read.table(here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), sep = ',')
 # data <- data[1:114,]
 dummies <- matrix(0, nrow = nrow(data), ncol = 114)
 
-
+# The input matrix dummies is all 0s. The series of loops below recode certain
+# matrix elements to 1. The first scale has 14 items but the i token only goes
+# 1:13. This means that case 14 which corresponds to the last item in scale 1
+# for the first case of data, is left at the input value of 0 accross all
+# columns. In this way, the first 13 items of scale 1 receive a code of 1 in the
+# column corresponding to their item number (captured in the token 1). Thus, all
+# items are dummy-coded relative to last item in their scale, which stays colded
+# at 0 across all columns.
 for(i in 1:13){
   for(p in 1:nrow(data)){
     if(data[p,2] == i){dummies[p,i] <- 1}
