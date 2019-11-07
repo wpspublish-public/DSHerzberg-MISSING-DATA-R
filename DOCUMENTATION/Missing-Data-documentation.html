@@ -249,7 +249,14 @@ data &lt;- read.table(here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), sep = '
 # data &lt;- data[1:114,]
 dummies &lt;- matrix(0, nrow = nrow(data), ncol = 114)
 
-
+# The input matrix dummies is all 0s. The series of loops below recode certain
+# matrix elements to 1. The first scale has 14 items but the i token only goes
+# 1:13. This means that case 14 which corresponds to the last item in scale 1
+# for the first case of data, is left at the input value of 0 accross all
+# columns. In this way, the first 13 items of scale 1 receive a code of 1 in the
+# column corresponding to their item number (captured in the token 1). Thus, all
+# items are dummy-coded relative to last item in their scale, which stays colded
+# at 0 across all columns.
 for(i in 1:13){
   for(p in 1:nrow(data)){
     if(data[p,2] == i){dummies[p,i] &lt;- 1}
@@ -330,7 +337,7 @@ VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4
 <p>Variables on <code>NOMINAL</code> line are recoded into dummy codes at imputation.</p>
 <pre class="r"><code>ORDINAL: response;
 NOMINAL: scalenum;</code></pre>
-<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, values of ‘itemnum’ are nested within each value of ‘id’.</p>
+<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, values of <code>itemnum</code> are nested within each value of ‘id’.</p>
 <pre class="r"><code>FIXED: scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10;
 CLUSTERID: id;</code></pre>
 <p><code>MISSING</code> designates the missing data code. In this <code>MODEL</code>, response is regressed on the dummy-coded scale variables (created by <code>NOMINAL</code> command) and the dummy-coded item item variables (represented in columns in the input .csv).</p>
@@ -374,13 +381,9 @@ write_csv(spm_p_noMiss, here('OUTPUT-FILES/SPM-P-noMiss.csv'))</code></pre>
 <div id="variances-section" class="section level4">
 <h4>Variances Section</h4>
 <ul>
-<li>Lines that begin with L2 and have only a single quantity in the <code>Variances</code> column (e.g., <code>L2 Intercept (i)</code>, <code>L2 scalenum#2</code>) are <em>variances</em> of a particular scale score.</li>
+<li>Lines that begin with L2 and have only a single quantity in the <code>Variances</code> column (e.g., <code>L2 Intercept (i)</code>, <code>L2 scalenum#2</code>) are <em>variances</em> of a particular scale score. <code>L2 Intercept (i)</code> is the variance of scale #1.</li>
 <li>Lines that have two elements (e.g., <code>L2 scalenum#3, scalenum#2</code>) are the <em>covariances</em> between two scale scores.</li>
 </ul>
-</div>
-</div>
-<div id="is-l2-intercept-i-the-variance-of-scalenum1" class="section level3">
-<h3>Is <code>L2 Intercept (i)</code> the variance of scalenum#1?</h3>
 <pre class="r"><code>ANALYSIS MODEL ESTIMATES:
 
 
@@ -405,23 +408,20 @@ Variances:                      |          |          |          |          |   
   
   Residual Var.                 |     1.000|     1.000|     0.000|     1.000|     1.000|
                                 |----------|----------|----------|----------|----------|</code></pre>
+</div>
 <div id="coefficients-section" class="section level4">
 <h4>Coefficients Section</h4>
 <ul>
 <li><code>Intercept</code>: grand mean of latent scale #1.</li>
 <li><code>scalenum</code>: dummy codes reflecting mean differences of the listed scale from scale #1 (expressed roughly on a z-score scale).
 <ul>
-<li>In this example, all scales have lower means than scale #1, except for scale #3.</li>
+<li>In this example, all scales have lower means than scale #1, except for scale #3. Confidence intervals in the right-most columns tell whether a scale’s mean differs significantly from the mean of scale #1.</li>
 </ul></li>
 <li><code>s1d1</code> et al.: dummy codes that capture differences among items with respect to difficulty.
 <ul>
-<li>Coefficents give mean difference of each item relative to lastsitem on that scale.</li>
+<li>Coefficents give mean difference of each item relative to last item on that scale.</li>
 </ul></li>
 </ul>
-</div>
-</div>
-<div id="is-scalenum2-coefficient-its-mean-difference-on-a-z-score-scale-from-intercept-scale-1" class="section level3">
-<h3>Is scalenum#2 coefficient its mean difference (on a z-score scale) from Intercept (scale #1)</h3>
 <pre class="r"><code>Coefficients:                   |          |          |          |          |          |
   Intercept                     |     0.136|     0.119|     0.053|     0.078|     0.231|
   scalenum#2                    |    -0.507|    -0.498|     0.056|    -0.623|    -0.421|
@@ -442,10 +442,11 @@ Variances:                      |          |          |          |          |   
   s8d9                          |     1.289|     1.282|     0.062|     1.190|     1.391|
   s8d10                         |     1.302|     1.322|     0.053|     1.183|     1.356|
                                 |----------|----------|----------|----------|----------|</code></pre>
+</div>
 <div id="threshold-section" class="section level4">
 <h4>Threshold Section</h4>
 <ul>
-<li><code>Tau</code>: set of z-score cutpoints that slice underlying latent normal scores into four discrete response options (for four-point item rating scale)</li>
+<li><code>Tau</code>: set of z-score cutpoints that slice underlying latent normal scores into four discrete response options (for four-point item rating scale). This is not a direct analog to polytomous response thresholds in IRT, because the latter are available on an item-by-item basis, whereas these Tau paramaters represent a shared aspect of all items in the BLIMP analysis.</li>
 </ul>
 <pre class="r"><code>Thresholds:                     |          |          |          |          |          |
   Tau 1                         |     0.000|     0.000|     0.000|     0.000|     0.000|

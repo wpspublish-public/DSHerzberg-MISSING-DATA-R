@@ -62,3 +62,23 @@ spm_p_noMiss_tall <- suppressMessages(read_csv(here('model4imp1.csv'))[1:3])
 test <- spm_p %>% filter(id == 28013)
 test_noMiss <- spm_p_noMiss %>% filter(id == 28013)
 all.equal(test, test_noMiss)
+
+
+data <- matrix(
+  c(rep(101, 10),rep(102, 10), rep(1:10, 2), as.integer(runif(20, 1, 5))),
+  nrow= 20,
+  ncol= 3
+  ) 
+
+dummies <- matrix(0, nrow = 20, ncol = 10)
+
+for(i in 1:4){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}
+for(i in 6:9){
+  for(p in 1:nrow(data)){
+    if(data[p,2] == i){dummies[p,i] <- 1}
+  }
+}

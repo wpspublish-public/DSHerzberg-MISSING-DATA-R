@@ -204,7 +204,7 @@ For all output tables, the entries in the mean/StdDev columns can be regarded as
 
 #### Variances Section
 
-* Lines that begin with L2 and have only a single quantity in the `Variances` column (e.g., `L2 Intercept (i)`, `L2 scalenum#2`) are _variances_ of a particular scale score. 
+* Lines that begin with L2 and have only a single quantity in the `Variances` column (e.g., `L2 Intercept (i)`, `L2 scalenum#2`) are _variances_ of a particular scale score. `L2 Intercept (i)` is the variance of scale #1. 
 * Lines that have two elements (e.g., `L2 scalenum#3, scalenum#2`) are the _covariances_ between two scale scores.
 
 ```{r BLIMP_output_var, eval=FALSE}
@@ -238,11 +238,9 @@ Variances:                      |          |          |          |          |   
 
 * `Intercept`: grand mean of latent scale #1.
 * `scalenum`: dummy codes reflecting mean differences of the listed scale from scale #1 (expressed roughly on a z-score scale). 
-    + In this example, all scales have lower means than scale #1, except for scale #3.
+    + In this example, all scales have lower means than scale #1, except for scale #3. Confidence intervals in the right-most columns tell whether a scale's mean differs significantly from the mean of scale #1.
 * `s1d1` et al.: dummy codes that capture differences among items with respect to difficulty.
-    + Coefficents give mean difference of each item relative to lastsitem on that scale.
-
-### Is scalenum#2 coefficient its mean difference (on a z-score scale) from Intercept (scale #1)
+    + Coefficents give mean difference of each item relative to last item on that scale.
 
 ```{r BLIMP_output_coeff, eval=FALSE}
 Coefficients:                   |          |          |          |          |          |
@@ -269,7 +267,7 @@ Coefficients:                   |          |          |          |          |   
 
 #### Threshold Section
 
-* `Tau`: set of z-score cutpoints that slice underlying latent normal scores into four discrete response options (for four-point item rating scale)
+* `Tau`: set of z-score cutpoints that slice underlying latent normal scores into four discrete response options (for four-point item rating scale). This is not a direct analog to polytomous response thresholds in IRT, because the latter are available on an item-by-item basis, whereas these Tau paramaters represent a shared aspect of all items in the BLIMP analysis.
 
 ```{r BLIMP_output_tau, eval=FALSE}
 Thresholds:                     |          |          |          |          |          |
