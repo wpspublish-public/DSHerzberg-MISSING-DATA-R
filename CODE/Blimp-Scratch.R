@@ -65,10 +65,25 @@ all.equal(test, test_noMiss)
 
 
 data <- matrix(
-  c(rep(101, 10),rep(102, 10), rep(1:10, 2), as.integer(runif(20, 1, 5))),
+  c(rep(101, 10),rep(102, 10), rep(1:10, 2), sample(1:4, 20, replace = T)),
   nrow= 20,
   ncol= 3
   ) 
+
+df <- tibble(
+  person = rep(101:102, each = 10),
+  item = as.factor(rep(1:10, 2)),
+  response = sample(1:4, 20, replace = T),
+  scale = as.factor(rep(rep(1:2, each = 5), 2))
+)
+
+dum <- df %>% 
+  recipe(~ .) %>% 
+  step_dummy(item, one_hot = T) %>% 
+  prep(training = df) %>% 
+  bake(new_data = df)
+dum
+
 
 dummies <- matrix(0, nrow = 20, ncol = 10)
 
@@ -82,3 +97,17 @@ for(i in 6:9){
     if(data[p,2] == i){dummies[p,i] <- 1}
   }
 }
+
+library(recipes)
+library(tibble)
+
+tib <- as.tibble(list(record = c(1:10), 
+                      gender = as.factor(sample(c("M", "F"), 10, replace = TRUE)), 
+                      like_product = as.factor(sample(1:5, 10, replace = TRUE))))
+dum <- tib %>% 
+  recipe(~ .) %>% 
+  step_dummy(gender, like_product) %>% 
+  prep(training = tib) %>% 
+  bake(new_data = tib)
+
+dum
