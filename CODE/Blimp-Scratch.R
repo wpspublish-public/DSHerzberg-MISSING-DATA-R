@@ -70,20 +70,29 @@ data <- matrix(
   ncol= 3
   ) 
 
+ 
 df <- tibble(
   person = rep(101:102, each = 10),
   item = as.factor(rep(1:10, 2)),
   response = sample(1:4, 20, replace = T),
   scale = as.factor(rep(rep(1:2, each = 5), 2))
+) %>% mutate(
+  scale_last = case_when(
+    as.integer(scale) != lead(as.integer(scale)) | is.na(lead(as.integer(scale))) ~ 1,
+    TRUE ~ NA_real_
+  )
 )
 
 dum <- df %>% 
   recipe(~ .) %>% 
   step_dummy(item, one_hot = T) %>% 
-  prep(training = df) %>% 
+  prep(training = df) %>%
   bake(new_data = df)
 dum
 
+recode <- function(x) {x = 0}
+test <- dum %>% mutate_all(recode)
+  
 
 dummies <- matrix(0, nrow = 20, ncol = 10)
 
@@ -98,7 +107,7 @@ for(i in 6:9){
   }
 }
 
-library(recipes)
+supressMessages(library(recipes))
 library(tibble)
 
 tib <- as.tibble(list(record = c(1:10), 
