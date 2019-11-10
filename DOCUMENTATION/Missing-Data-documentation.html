@@ -201,6 +201,14 @@ $(document).ready(function () {
 <div id="prepare-data-for-blimp" class="section level3">
 <h3>Prepare data for BLIMP</h3>
 <p>Input data should formatted with cases in rows and items in columns with a person ID column on the far left. Run the following code to restructure the input for BLIMP.</p>
+<p>Here and throughout, certain token markers are employed to designate user-input values that vary by project:</p>
+<ul>
+<li><code>{TOKEN}</code>: any value or series of values<br />
+</li>
+<li><code>{FILE-PATH}</code><br />
+</li>
+<li><code>{FILE-NAME-SUFFIX.csv}</code></li>
+</ul>
 <pre class="r"><code>suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 

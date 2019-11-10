@@ -1,5 +1,6 @@
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
+suppressMessages(library(recipes))
 
 # SPM-P
 # prep data file for BLIMP
@@ -63,7 +64,7 @@ test <- spm_p %>% filter(id == 28013)
 test_noMiss <- spm_p_noMiss %>% filter(id == 28013)
 all.equal(test, test_noMiss)
 
-
+# DUMMY CODING
 data <- matrix(
   c(rep(101, 10),rep(102, 10), rep(1:10, 2), sample(1:4, 20, replace = T)),
   nrow= 20,
@@ -87,12 +88,9 @@ dum <- df %>%
   recipe(~ .) %>% 
   step_dummy(item, one_hot = T) %>% 
   prep(training = df) %>%
-  bake(new_data = df)
-dum
-
-recode <- function(x) {x = 0}
-test <- dum %>% mutate_all(recode)
-  
+  bake(new_data = df) %>% 
+  mutate_at(vars(starts_with("item")), ~replace(., scale_last == 1, 0))
+print(dum, width = Inf)
 
 dummies <- matrix(0, nrow = 20, ncol = 10)
 
@@ -107,8 +105,6 @@ for(i in 6:9){
   }
 }
 
-supressMessages(library(recipes))
-library(tibble)
 
 tib <- as.tibble(list(record = c(1:10), 
                       gender = as.factor(sample(c("M", "F"), 10, replace = TRUE)), 
@@ -120,3 +116,12 @@ dum <- tib %>%
   bake(new_data = tib)
 
 dum
+
+
+test <- input_gathered %>% mutate(
+    scale_last = case_when(
+      # as.integer(scale) != lead(as.integer(scale)) | is.na(lead(as.integer(scale))) ~ 1,
+      scale != lead(scale) | is.na(lead(scale)) ~ 1,
+      TRUE ~ NA_real_
+      )
+)

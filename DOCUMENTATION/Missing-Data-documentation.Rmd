@@ -13,28 +13,44 @@ This documents a method in which input data are prepped in R and then run throug
 
 The example is based on rating scale data, with items grouped into subscales, with a four-point ordinal response format.
 
+Code assumes a typical RStudio project folder hierarchy, with `INPUT-FILES` and `OUTPUT-FILES` folders at the first level.
+
 ### Prepare data for BLIMP
 
 Input data should formatted with cases in rows and items in columns with a person ID column on the far left. Run the following code to restructure the input for BLIMP.
+
+Here and throughout, certain token markers are employed to designate user-input values that vary by project:  
+
+* `{TOKEN}`: any value or series of values  
+* `{FILE-PATH}`  
+* `{FILE-NAME}` 
+
 
 ```{r read_input, eval=FALSE}
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 
+id <- c('{TOKEN}')
+first_item <- c('{TOKEN}')
+last_item <- c('{TOKEN}')
+file_name <- c('{FILE-NAME}')
+
 # SPM-P
 # prep data file for BLIMP
-spm_p <- suppressMessages(read_csv(here('INPUT-FILES/SPM-P-data.csv'))) %>% 
-  select(id, hom_i001:hom_i114)
+input_orig <- suppressMessages(read_csv(here(
+  paste0('INPUT-FILES/', file_name, '.csv')
+  ))) %>% 
+  select(id, first_item:last_item)
 # Save column names for downstream
-names_input <- names(spm_p)
+names_input <- names(input_orig)
   # Count NA accross all columns
-NA_count <- spm_p %>% summarise_all(list(~sum(is.na(.)))) %>%
+NA_count <- input_orig %>% summarise_all(list(~sum(is.na(.)))) %>%
   mutate(
     all_NA = rowSums(.[2:115]))
 # replace all NA with 999
-spm_p[is.na(spm_p)] <- 999
+input_orig[is.na(input_orig)] <- 999
 # gather cols
-spm_gathered <- spm_p %>%
+input_gathered <- input_orig %>%
   gather('item','response',-id) %>% 
   group_by(id) %>% 
   arrange(id) %>% 
@@ -54,13 +70,14 @@ spm_gathered <- spm_p %>%
       )
     )
     )
-spm_head <- head(spm_gathered, 100L)
-# strip column names from df
-write_csv(spm_p, here('INPUT-FILES/SPM-P-data-BLIMP.csv'), col_names = F)
-write_csv(spm_gathered, here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), col_names = F)
-# keep col names
-write_csv(spm_head, here('INPUT-FILES/SPM-head.csv'))
-
+# strip column names from df, and write out file
+write_csv(spm_gathered,
+          here(paste0(
+          'OUTPUT-FILES/', file_name, '-gathered-BLIMP.csv'
+          )),
+          col_names = F)
+          )
+          
 # dummy code item-scale assignment, relative to last item in each scale
 data <- read.table(here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), sep = ',')
 # data <- data[1:114,]
