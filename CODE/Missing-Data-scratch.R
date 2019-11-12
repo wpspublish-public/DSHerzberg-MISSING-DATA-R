@@ -8,6 +8,7 @@ last_item <- c('hom_i114')
 file_name <- c('SPM-P-data')
 scale_assign <- list(1:14, 15:30, 31:42, 43:65, 66:73, 74:87, 88:103, 104:114)
 scale_num <- 1:8
+names(scale_assign) <- scale_num
 
 # SPM-P
 # prep data file for BLIMP
@@ -28,65 +29,86 @@ input_gathered <- input_orig %>%
   gather('item','response',-id) %>% 
   group_by(id) %>% 
   arrange(id) %>% 
-  mutate(
-    item = as.integer(str_sub(item, 6, 8)),
-    scale = as.factor(
-      case_when(
-        between(item, 1, 14) ~ 1,
-        between(item, 15, 30) ~ 2,
-        between(item, 31, 42) ~ 3,
-        between(item, 43, 65) ~ 4,
-        between(item, 66, 73) ~ 5,
-        between(item, 74, 87) ~ 6,
-        between(item, 88, 103) ~ 7,
-        between(item, 104, 114) ~ 8,
-        TRUE ~ NA_real_
-        )
-      )
-    )
+  mutate(item = as.integer(str_sub(item, 6, 8)))
 
-# coerce item to factor.
-input_gathered$item <- as.factor(input_gathered$item)
-
-input_gathered <- input_gathered %>% mutate(
-  scale_last = case_when(
-    scale != lead(scale) | is.na(lead(scale)) ~ 1,
-    TRUE ~ NA_real_
-  )
-)
+input_scale <- enframe(scale_assign) %>%
+  unnest(item = value) %>%
+  rename (scale = name) %>%
+  mutate_all(as.integer) %>%
+  right_join(input_gathered, by = "item") %>%
+  select(id, item, response, scale) %>%
+  mutate(scale_last = case_when(scale != lead(scale) |
+                                  is.na(lead(scale)) ~ 1,
+                                TRUE ~ NA_real_)) %>%
+  mutate_at(vars(item), ~ as.factor(.))
 
 
-dum <- input_gathered %>% 
+# input_gathered <- input_orig %>%
+#   gather('item','response',-id) %>% 
+#   group_by(id) %>% 
+#   arrange(id) %>% 
+#   mutate(
+#     item = as.integer(str_sub(item, 6, 8)),
+#     scale = as.factor(
+#       case_when(
+#         between(item, 1, 14) ~ 1,
+#         between(item, 15, 30) ~ 2,
+#         between(item, 31, 42) ~ 3,
+#         between(item, 43, 65) ~ 4,
+#         between(item, 66, 73) ~ 5,
+#         between(item, 74, 87) ~ 6,
+#         between(item, 88, 103) ~ 7,
+#         between(item, 104, 114) ~ 8,
+#         TRUE ~ NA_real_
+#       )
+#     )
+#   )
+
+# # coerce item to factor.
+# input_gathered$item <- as.factor(input_gathered$item)
+# 
+# input_gathered <- input_gathered %>% mutate(
+#   scale_last = case_when(
+#     scale != lead(scale) | is.na(lead(scale)) ~ 1,
+#     TRUE ~ NA_real_
+#   )
+# )
+
+dum <- input_scale %>% 
   recipe(~ .) %>% 
   step_dummy(item, one_hot = T, preserve = T) %>% 
-  prep(training = input_gathered) %>%
-  bake(new_data = input_gathered) %>% 
+  prep(training = input_scale) %>%
+  bake(new_data = input_scale) %>% 
   mutate_at(vars(starts_with("item_")), ~replace(., scale_last == 1, 0)) %>% 
   select(-scale_last)
 
 write_csv(dum, here('test.csv'), col_names = F)
 
-test <- input_gathered %>% map2(
-  scale_assign,
-  scale_num,
-  ~ mutate(scale = case_when(
-    item %in% scale_assign ~ scale_num
-    TRUE ~ NA_real_
-  )
-  )
-)
-    
-df <- tibble(
+
+##############  REPREX BELOW HERE
+
+set.seed(1234)    
+input <- tibble(
   person = rep(101:103, each = 12),
   item = rep(1:12, 3),
-  response = sample(1:4, 36, replace = T),
-  scale = rep(1:4, each = 3, 3)
+  response = sample(1:4, 36, replace = T)
+  # scale = rep(1:4, each = 3, 3)
 )
 
-scale_assign <- list(1:3, 4:6, 7:9, 10:12)
-scale_num <- 1:4
+# scale_assign <- list(1:3, 4:6, 7:9, 10:12)
+# scale_num <- 1:4
 
-print(df, n = Inf)
+scale_assign <- list(1:3, 4:6, 7:9, 10:12)
+names(scale_assign) <- 1:4
+
+test <- enframe(scale_assign) %>%
+  unnest(item = value) %>%
+  rename (scale = name) %>% 
+  mutate_all(as.integer) %>%
+  right_join(input, by = "item") %>% 
+  select(person, item, response, scale)
+
+print(test, n = Inf)
 
 # A tibble: 36 x 4
 # person  item response scale
