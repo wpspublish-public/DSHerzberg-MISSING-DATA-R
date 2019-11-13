@@ -196,121 +196,136 @@ $(document).ready(function () {
 <div id="overview" class="section level3">
 <h3>Overview</h3>
 <p>This documents a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.</p>
-<p>The example is based on rating scale data, with items grouped into subscales, with a four-point ordinal response format.</p>
+<p>The code is flexible: it can handle any number of items, subscales, and item-scale assignments.</p>
+<p>Code assumes a typical RStudio project folder hierarchy, with <code>INPUT-FILES</code> and <code>OUTPUT-FILES</code> folders at the first level.</p>
 </div>
 <div id="prepare-data-for-blimp" class="section level3">
 <h3>Prepare data for BLIMP</h3>
-<p>Input data should formatted with cases in rows and items in columns with a person ID column on the far left. Run the following code to restructure the input for BLIMP.</p>
+<p>Input data should formatted with cases in rows and items in columns with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed in the consecutive sequence described in the previous sentence. The code then reassigns them to their scales/subtests as it reformats the input file.</p>
+<p>Run the following code to restructure the input for BLIMP.</p>
 <p>Here and throughout, certain token markers are employed to designate user-input values that vary by project:</p>
 <ul>
 <li><code>{TOKEN}</code>: any value or series of values<br />
 </li>
 <li><code>{FILE-PATH}</code><br />
 </li>
-<li><code>{FILE-NAME-SUFFIX.csv}</code></li>
+<li><code>{FILE-NAME}</code></li>
 </ul>
+<div id="valid-code-to-run" class="section level6">
+<h6>VALID CODE TO RUN</h6>
 <pre class="r"><code>suppressMessages(library(here))
 suppressMessages(library(tidyverse))
+suppressMessages(library(recipes))
 
-# SPM-P
-# prep data file for BLIMP
-spm_p &lt;- suppressMessages(read_csv(here('INPUT-FILES/SPM-P-data.csv'))) %&gt;% 
-  select(id, hom_i001:hom_i114)
-# Save column names for downstream
-names_input &lt;- names(spm_p)
-  # Count NA accross all columns
-NA_count &lt;- spm_p %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
+id &lt;- c('{TOKEN}')
+first_item &lt;- c('{TOKEN}')
+last_item &lt;- c('{TOKEN}')
+file_name &lt;- c('{FILE-NAME}')
+scale_assign &lt;- list({TOKEN})
+scale_num &lt;- {TOKEN}
+names(scale_assign) &lt;- scale_num
+
+input_orig &lt;- suppressMessages(read_csv(here(
+  paste0('INPUT-FILES/', file_name, '.csv')
+))) %&gt;% 
+  select(id, first_item:last_item)
+
+NA_count &lt;- input_orig %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
   mutate(
-    all_NA = rowSums(.[2:115]))
-# replace all NA with 999
-spm_p[is.na(spm_p)] &lt;- 999
-# gather cols
-spm_gathered &lt;- spm_p %&gt;%
+    all_NA = rowSums(.[2:ncol(.)]))
+
+input_orig[is.na(input_orig)] &lt;- 999
+
+input_gathered &lt;- input_orig %&gt;%
   gather('item','response',-id) %&gt;% 
   group_by(id) %&gt;% 
   arrange(id) %&gt;% 
+  mutate(item = as.integer(str_sub(item, 2, 4)))
+
+input_scale &lt;- enframe(scale_assign) %&gt;%
+  unnest(item = value) %&gt;%
+  rename (scale = name) %&gt;%
+  mutate_all(as.integer) %&gt;%
+  right_join(input_gathered, by = &quot;item&quot;) %&gt;%
+  select(id, item, response, scale) %&gt;%
+  mutate(scale_last = case_when(scale != lead(scale) |
+                                  is.na(lead(scale)) ~ 1,
+                                TRUE ~ NA_real_)) %&gt;%
+  mutate_at(vars(item), ~ as.factor(.))
+
+dum &lt;- input_scale %&gt;% 
+  recipe(~ .) %&gt;% 
+  step_dummy(item, one_hot = T, preserve = T) %&gt;% 
+  prep(training = input_scale) %&gt;%
+  bake(new_data = input_scale) %&gt;% 
+  mutate_at(vars(starts_with(&quot;item_&quot;)), ~replace(., scale_last == 1, 0)) %&gt;% 
+  select(-scale_last)
+
+write_csv(dum,
+          here(paste0(file_name, '-BLIMP-input.csv')),
+          col_names = F
+)</code></pre>
+</div>
+<div id="commented-snippets" class="section level6">
+<h6>COMMENTED SNIPPETS</h6>
+<p>The snippet below contains user-programmable input paramaters. Here are the token substitutions:</p>
+<ul>
+<li><code>id</code>: name of person ID column</li>
+<li><code>first_item</code>: name of column holding first item</li>
+<li><code>last_item</code>: name of column holding last item</li>
+<li><code>file_name</code>: <em>prefix</em> of input file name (e.g., stripped of <code>.csv</code>)</li>
+<li><code>scale_assign</code>: this list contains a series of integer ranges (e.g., <code>1:14</code>, <code>15:33</code>, <code>34:48</code>, etc.) that group items by their assigned subscale. For example, the range <code>1:14</code> gives the numbers of the 14 items that comprise subscale 1.</li>
+<li><code>scale_num</code>: number of subscales, expressed as an interger range starting with 1 (e.g., <code>1:8</code>)</li>
+</ul>
+<pre class="r"><code>id &lt;- c('{TOKEN}')
+first_item &lt;- c('{TOKEN}')
+last_item &lt;- c('{TOKEN}')
+file_name &lt;- c('{FILE-NAME}')
+scale_assign &lt;- list({TOKEN})
+scale_num &lt;- {TOKEN}
+names(scale_assign) &lt;- scale_num</code></pre>
+<p>Read the input table into <code>input_orig</code>. Keep only the <code>id</code> and <code>item</code> columns.</p>
+<pre class="r"><code>input_orig &lt;- suppressMessages(read_csv(here(
+  paste0('INPUT-FILES/', file_name, '.csv')
+))) %&gt;% 
+  select(id, first_item:last_item)</code></pre>
+<p>Count the <code>NA</code> cells across all items and persons in the input table. <code>dplyr::summarise_all</code> applies a summary function across all columns in the input table. In this instance, <code>base::is.na()</code> is the kernel function, which returns a logical <code>TRUE</code> for each <code>NA</code> cell (the <code>.</code> shorthand indicates the function is being applied to the piped data object). This is wrapped in <code>~sum()</code>, which returns a sum of the <code>TRUE</code>s for each column. This complete expression is passed to <code>summarise_all()</code> within a <code>list()</code>, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of <code>NA</code> within each item column, retaining the original column names. <code>mutate()</code> is used to create the new column <code>all_NA</code>, which is the sum <code>base:rowSums</code> of the <code>NA</code> across all item columns. The columns to be summed are captured by the expression <code>.[2:ncol(.)]</code>, which refers to the piped data object <code>.</code>, subsetted by columns <code>[]</code>, including the 2nd through the last column (indicated by <code>ncol(.)</code>, the number of columns in the piped object).</p>
+<pre class="r"><code>NA_count &lt;- input_orig %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
   mutate(
-    item = as.integer(str_sub(item, 6, 8)),
-    scale = as.integer(
-      case_when(
-      between(item, 1, 14) ~ 1,
-      between(item, 15, 30) ~ 2,
-      between(item, 31, 42) ~ 3,
-      between(item, 43, 65) ~ 4,
-      between(item, 66, 73) ~ 5,
-      between(item, 74, 87) ~ 6,
-      between(item, 88, 103) ~ 7,
-      between(item, 104, 114) ~ 8,
-      TRUE ~ NA_real_
-      )
-    )
-    )
-spm_head &lt;- head(spm_gathered, 100L)
-# strip column names from df
-write_csv(spm_p, here('INPUT-FILES/SPM-P-data-BLIMP.csv'), col_names = F)
-write_csv(spm_gathered, here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), col_names = F)
-# keep col names
-write_csv(spm_head, here('INPUT-FILES/SPM-head.csv'))
+    all_NA = rowSums(.[2:ncol(.)]))</code></pre>
+<p>Recode the <code>NA</code> in the input to <code>999</code>, the BLIMP prefered missing value code. Assign the value <code>999</code> to the subset of cells within <code>input_orig</code> for which the predicate (logical) expression <code>is.na(input_orig)</code> returns <code>TRUE</code>.</p>
+<pre class="r"><code>input_orig[is.na(input_orig)] &lt;- 999</code></pre>
+<p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. Thus each person has the same number of rows as the number of items. Within each set of person-rows, the left-right sequence of columns (item names) in the input file is represented in the <code>item</code> column, going down the rows. In the <code>response</code> column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.</p>
+<pre class="r"><code>input_gathered &lt;- input_orig %&gt;%
+  gather('item','response',-id) %&gt;% 
+  group_by(id) %&gt;% 
+  arrange(id) %&gt;% 
+  mutate(item = as.integer(str_sub(item, 2, 4)))</code></pre>
+<pre class="r"><code># add column that labels the row containing the last item in each scale/subtest.
+# This labeling is needed for BLIMP dummy coding, in which scale items are
+# dummy-coded relative to the last item in their assigned scale.
+input_gathered &lt;- input_gathered %&gt;% mutate(
+  scale_last = case_when(
+    scale != lead(scale) | is.na(lead(scale)) ~ 1,
+    TRUE ~ NA_real_
+  )
+)
 
-# dummy code item-scale assignment, relative to last item in each scale
-data &lt;- read.table(here('INPUT-FILES/SPM-P-data-gathered-BLIMP.csv'), sep = ',')
-# data &lt;- data[1:114,]
-dummies &lt;- matrix(0, nrow = nrow(data), ncol = 114)
+# use `recipes::step_dummy` to create the dummy codes.
+dum &lt;- input_gathered %&gt;% 
+  recipe(~ .) %&gt;% 
+  step_dummy(item, one_hot = T, preserve = T) %&gt;% 
+  prep(training = input_gathered) %&gt;%
+  bake(new_data = input_gathered) %&gt;% 
+  mutate_at(vars(starts_with(&quot;item_&quot;)), ~replace(., scale_last == 1, 0)) %&gt;% 
+  select(-scale_last)
 
-# The input matrix dummies is all 0s. The series of loops below recode certain
-# matrix elements to 1. The first scale has 14 items but the i token only goes
-# 1:13. This means that case 14 which corresponds to the last item in scale 1
-# for the first case of data, is left at the input value of 0 accross all
-# columns. In this way, the first 13 items of scale 1 receive a code of 1 in the
-# column corresponding to their item number (captured in the token 1). Thus, all
-# items are dummy-coded relative to last item in their scale, which stays colded
-# at 0 across all columns.
-for(i in 1:13){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-for(i in 15:29){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-for(i in 31:41){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-for(i in 43:64){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-for(i in 66:72){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-for(i in 74:86){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-for(i in 88:102){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-for(i in 104:113){
-  for(p in 1:nrow(data)){
-    if(data[p,2] == i){dummies[p,i] &lt;- 1}
-  }
-}
-
-test &lt;- cbind(data, dummies)
-colMeans(dummies)
-
-write.table(cbind(data, dummies), here('SPM.csv'), sep = &quot;,&quot;, row.names = F, col.names = F)</code></pre>
+# write the input file for BLIMP, stripping the column names as required. The
+# input file is written to the top folder of the RStudio project. The BLIMP
+# script must also be located in this folder
+write_csv(dum, here('BLIMP-input.csv'), col_names = F)</code></pre>
 <p><br></p>
+</div>
 </div>
 <div id="run-blimp-script-on-prepped-data" class="section level3">
 <h3>Run BLIMP script on prepped data</h3>
@@ -321,7 +336,7 @@ write.table(cbind(data, dummies), here('SPM.csv'), sep = &quot;,&quot;, row.name
 </ul>
 <div id="this-code-can-be-run-in-blimp-studio" class="section level6">
 <h6>THIS CODE CAN BE RUN IN BLIMP STUDIO</h6>
-<pre class="r"><code>DATA: SPM.csv;
+<pre class="r"><code>DATA: BLIMP-input.csv;
 VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4d23 s5d1-s5d8 s6d1-s6d14 s7d1-s7d16 s8d1-s8d11;
 ORDINAL: response;
 NOMINAL: scalenum;
@@ -337,10 +352,10 @@ OPTIONS: estimates;
 SAVE: separate = model4imp*.csv;</code></pre>
 <p><br></p>
 </div>
-<div id="commented-snippets" class="section level6">
+<div id="commented-snippets-1" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
 <p><code>VARIABLE</code> names to the right of <code>scalenum</code> are the dummy codes (d) for each of eight scales (s).</p>
-<pre class="r"><code>DATA: SPM.csv;
+<pre class="r"><code>DATA: BLIMP-input.csv;
 VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4d23 s5d1-s5d8 s6d1-s6d14 s7d1-s7d16 s8d1-s8d11;</code></pre>
 <p>Variables on <code>NOMINAL</code> line are recoded into dummy codes at imputation.</p>
 <pre class="r"><code>ORDINAL: response;

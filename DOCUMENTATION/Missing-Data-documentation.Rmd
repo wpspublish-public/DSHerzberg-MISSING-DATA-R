@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This documents a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.
 
-The example is based on rating scale data, with items grouped into subscales, with a four-point ordinal response format.
+The code is flexible: it can handle any number of items, subscales, and item-scale assignments.
 
 Code assumes a typical RStudio project folder hierarchy, with `INPUT-FILES` and `OUTPUT-FILES` folders at the first level.
 
@@ -27,63 +27,92 @@ Here and throughout, certain token markers are employed to designate user-input 
 * `{FILE-PATH}`  
 * `{FILE-NAME}` 
 
+###### VALID CODE TO RUN
 
-```{r read_input, eval=FALSE}
+```{r prep_BLIMP_input, eval=FALSE}
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
+suppressMessages(library(recipes))
 
 id <- c('{TOKEN}')
 first_item <- c('{TOKEN}')
 last_item <- c('{TOKEN}')
 file_name <- c('{FILE-NAME}')
-# Next {TOKEN} holds a series of numerical ranges in the format `x:y`, where `x`
-# is the first item of a scale/subtest, and `y` is thte last item of that same
-# scale/subtest. This assumes that items are numbered i001, i002, i003, etc.
-# Thus, the first range in this list holds the item numbers for scale/subtest 1,
-# the second range holds the item numbers for scale/subtest 2, and so on.
 scale_assign <- list({TOKEN})
-# Next {TOKEN} holds the number (n) of scales/subtests, in the format `1:n`
 scale_num <- {TOKEN}
+names(scale_assign) <- scale_num
 
-# SPM-P
-# prep data file for BLIMP
 input_orig <- suppressMessages(read_csv(here(
   paste0('INPUT-FILES/', file_name, '.csv')
-  ))) %>% 
+))) %>% 
   select(id, first_item:last_item)
-# Save column names for downstream
-names_input <- names(input_orig)
-  # Count NA across all columns
+
 NA_count <- input_orig %>% summarise_all(list(~sum(is.na(.)))) %>%
   mutate(
     all_NA = rowSums(.[2:ncol(.)]))
-# replace all NA with 999
+
 input_orig[is.na(input_orig)] <- 999
-# gather cols
+
 input_gathered <- input_orig %>%
   gather('item','response',-id) %>% 
   group_by(id) %>% 
   arrange(id) %>% 
-  mutate(
-    item = as.integer(str_sub(item, 6, 8)),
-    scale = as.integer(
-      case_when(
-      between(item, 1, 14) ~ 1,
-      between(item, 15, 30) ~ 2,
-      between(item, 31, 42) ~ 3,
-      between(item, 43, 65) ~ 4,
-      between(item, 66, 73) ~ 5,
-      between(item, 74, 87) ~ 6,
-      between(item, 88, 103) ~ 7,
-      between(item, 104, 114) ~ 8,
-      TRUE ~ NA_real_
-      )
-      )
-    )
+  mutate(item = as.integer(str_sub(item, 2, 4)))
 
-# coerce item to factor.
-input_gathered$item <- as.factor(input_gathered$item)
+input_scale <- enframe(scale_assign) %>%
+  unnest(item = value) %>%
+  rename (scale = name) %>%
+  mutate_all(as.integer) %>%
+  right_join(input_gathered, by = "item") %>%
+  select(id, item, response, scale) %>%
+  mutate(scale_last = case_when(scale != lead(scale) |
+                                  is.na(lead(scale)) ~ 1,
+                                TRUE ~ NA_real_)) %>%
+  mutate_at(vars(item), ~ as.factor(.))
 
+dum <- input_scale %>% 
+  recipe(~ .) %>% 
+  step_dummy(item, one_hot = T, preserve = T) %>% 
+  prep(training = input_scale) %>%
+  bake(new_data = input_scale) %>% 
+  mutate_at(vars(starts_with("item_")), ~replace(., scale_last == 1, 0)) %>% 
+  select(-scale_last)
+
+write_csv(dum,
+          here(paste0(file_name, '-BLIMP-input.csv')),
+          col_names = F
+)
+```
+
+###### COMMENTED SNIPPETS
+The snippet below contains user-programmable input paramaters. Here are the token substitutions:
+
+* `id`: name of person ID column
+* `first_item`: name of column holding first item
+* `last_item`: name of column holding last item
+* `file_name`: _prefix_ of input file name (e.g., stripped of `.csv`)
+* `scale_assign`: this list contains a series of integer ranges (e.g., `1:14`, `15:33`, `34:48`, etc.) that group items by their assigned subscale. For example, the range `1:14` gives the numbers of the 14 items that comprise subscale 1.
+* `scale_num`: number of subscales, expressed as an interger range starting with 1 (e.g., `1:8`)
+
+```{r prep_BLIMP_input, echo=5:11, eval=FALSE}
+```
+Read the input table into `input_orig`. Keep only the `id` and `item` columns.
+```{r prep_BLIMP_input, echo=13:16, eval=FALSE}
+```
+Count the `NA` cells across all items and persons in the input table. `dplyr::summarise_all` applies a summary function across all columns in the input table. In this instance, `base::is.na()` is the kernel function, which returns a logical `TRUE` for each `NA` cell (the `.` shorthand indicates the function is being applied to the piped data object). This is wrapped in `~sum()`, which returns a sum of the `TRUE`s for each column. This complete expression is passed to `summarise_all()` within a `list()`, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of `NA` within each item column, retaining the original column names. `mutate()` is used to create the new column `all_NA`, which is the sum `base:rowSums` of the `NA` across all item columns. The columns to be summed are captured by the expression `.[2:ncol(.)]`, which refers to the piped data object `.`, subsetted by columns `[]`, including the 2nd through the last column (indicated by `ncol(.)`, the number of columns in the piped object).
+```{r prep_BLIMP_input, echo=18:20, eval=FALSE}
+```
+Recode the `NA` in the input to `999`, the BLIMP prefered missing value code. Assign the value `999` to the subset of cells within `input_orig` for which the predicate (logical) expression `is.na(input_orig)` returns `TRUE`.
+```{r prep_BLIMP_input, echo=22, eval=FALSE}
+```
+Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. Thus each person has the same number of rows as the number of items. Within each set of person-rows, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.
+
+```{r prep_BLIMP_input, echo=24:28, eval=FALSE}
+```
+
+
+```{r read_input1, eval=FALSE}
+ 
 # add column that labels the row containing the last item in each scale/subtest.
 # This labeling is needed for BLIMP dummy coding, in which scale items are
 # dummy-coded relative to the last item in their assigned scale.
