@@ -17,9 +17,9 @@ Code assumes a typical RStudio project folder hierarchy, with `INPUT-FILES` and 
 
 ### Prepare data for BLIMP
 
-Input data should formatted with cases in rows and items in columns with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed in the consecutive sequence described in the previous sentence. The code then reassigns them to their scales/subtests as it reformats the input file.
+Input data should formatted with cases in rows and items in columns with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the `i001` consecutive nomenclature. The code then reassigns them to their scales/subtests as it reformats the input file.
 
-Run the following code to restructure the input for BLIMP.
+Once data are in this format, run the next block of code to restructure the input for BLIMP.
 
 Here and throughout, certain token markers are employed to designate user-input values that vary by project:  
 
@@ -107,6 +107,9 @@ Recode the `NA` in the input to `999`, the BLIMP prefered missing value code. As
 ```
 Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. Thus each person has the same number of rows as the number of items. Within each set of person-rows, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.
 
+`tidyr::gather()` transforms the table. In this call, `'item'` and `'response'` name the key and value columns, respectively. Recall that `input_orig` contains only the `id` and the `item` columns. Including `-id` in the `gather()`call drops this column from inclusion in the key-value reformatting. By excluding it in this way, `id` appears in the left-most position in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. In the transformed table, the `item` column contains the `item` names from input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
+
+[MEXT: insert transformed table example]
 ```{r prep_BLIMP_input, echo=24:28, eval=FALSE}
 ```
 
