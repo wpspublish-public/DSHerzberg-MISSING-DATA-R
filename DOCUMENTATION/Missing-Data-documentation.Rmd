@@ -92,7 +92,9 @@ The snippet below contains user-programmable input paramaters. Here are the toke
 * `last_item`: name of column holding last item
 * `file_name`: _prefix_ of input file name (e.g., stripped of `.csv`)
 * `scale_assign`: this list contains a series of integer ranges (e.g., `1:14`, `15:33`, `34:48`, etc.) that group items by their assigned subscale. For example, the range `1:14` gives the numbers of the 14 items that comprise subscale 1.
-* `scale_num`: number of subscales, expressed as an interger range starting with 1 (e.g., `1:8`)
+* `scale_num`: numeric names for the subscales, expressed as an interger range starting with 1 (e.g., `1:8`)
+
+`names(scale_assign) <- scale_num` merges `scale_assign` and `scale_num` by converting the `scale_assign` into a named list, using the values of `scale_num` as the names for the elements of the list.
 
 ```{r prep_BLIMP_input, echo=5:11, eval=FALSE}
 ```
@@ -109,8 +111,58 @@ Recall that the structure of the input file is a row for each case, and a column
 
 `tidyr::gather()` transforms the table. In this call, `'item'` and `'response'` name the key and value columns, respectively. Recall that `input_orig` contains only the `id` and the `item` columns. Including `-id` in the `gather()`call drops this column from inclusion in the key-value reformatting. By excluding it in this way, `id` appears in the left-most position in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. In the transformed table, the `item` column contains the `item` names from input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
 
-[MEXT: insert transformed table example]
-```{r prep_BLIMP_input, echo=24:28, eval=FALSE}
+Here's are examples of the table structure before and after this transformation, for three cases of a four-item test:
+
+###### Before
+
+ID            | i01           | i02           | i03           | i04
+------------- | ------------- | ------------- | ------------- | -------------
+1001          | 2             | 2             | 3             | 1
+1002          | 4             | 1             | 4             | 2
+1003          | 3             | 2             | 3             | 4
+
+###### After
+
+ID            | Item          | Response
+------------- | ------------- | -------------
+1001          | i01           | 2
+1001          | i02           | 2
+1001          | i03           | 3
+1001          | i04           | 1
+1002          | i01           | 4
+1002          | i02           | 1
+1002          | i03           | 4
+1002          | i04           | 2
+1003          | i01           | 3
+1003          | i02           | 2
+1003          | i03           | 3
+1003          | i04           | 4
+
+```{r prep_BLIMP_input, echo=24:25, eval=FALSE}
+```
+`dplyr::group_by(id)` collects the rows with identical values of `id`, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the data by `id`. `mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to an integer by wrapping the expression in `as.integer()`.
+```{r prep_BLIMP_input, echo=26:28, eval=FALSE}
+```
+`input_gathered` has three columns: `id`, `item`, and `response`. We now add a column that provides each item's subscale assignment.
+
+Recall that earlier we created a list:  
+
+* `scale_assign`: this list contains a series of integer ranges (e.g., `1:14`, `15:33`, `34:48`, etc.) that group items by their assigned subscale. For example, the range `1:14` gives the numbers of the 14 items that comprise subscale 1.
+
+We now use `tibble::enframe()` to tranform this list into a data frame and assign it to `input_scale`. The resulting data frame has two columns:
+
+* `name`: the numeric names of the subscales
+* `value`: a list-column containing the integer ranges representing the item assignments for each subscale. In a sense, these ranges of items are nested within each value of name (each subscale)
+
+`tidyr::unnest()` operates on the list-column, making each element of each integer range in the list into its own row. The data object now has the same number of rows as the number of items in the test, with each item in the `item` column paired with its subscale name in the `name` column. `dplyr::rename()` renames the `name` column to `scale`. `mutate_all()` coerces all columns to integer.
+
+`dplyr::right_join()` is used to add the `scale` column to `input_gathered`. In this call, `right_join` returns all rows from the RHS data frame, which is the tall table `input_gathered`. The two tables are matched by the `item` column, meaning that each time an `item` number appears, it is paired with its corresponding `scale` number, which appears in the `scale` column. This item-scale correspondence is replicated down the entire length of the tall data object.
+
+```{r prep_BLIMP_input, echo=29:34, eval=FALSE}
+```
+We now have a four-column data object. `select()` orders the columns in the desired left-right sequence. `mutate()` then adds a fifth column `scale_last`, which assigns the label `1` to the rows containing the last item in each subscale. These rows are labeld with `case_when`, and the labeled rows are those where a predicate returns `TRUE`: _either_ the value of `scale` in the leading row is different `scale != lead(scale)`, _or_ the value of scale in the leading row is missing `is.na(lead(scale))`. The latter condition is needed to capture the last row in the table, where there is no leading row. Finally, `mutate_at` is used to apply a function to an extant column `vars(item)`, the function `as.factor` passed by the formula sign `~`, to coerce `item` to factor as required by downstream code.
+
+```{r prep_BLIMP_input, echo=35:39, eval=FALSE}
 ```
 
 
