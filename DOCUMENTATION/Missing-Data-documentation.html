@@ -433,23 +433,99 @@ names(scale_assign) &lt;- scale_num</code></pre>
   rename (scale = name) %&gt;%
   mutate_all(as.integer) %&gt;%
   right_join(input_gathered, by = &quot;item&quot;) %&gt;%</code></pre>
-<p>We now have a four-column data object. <code>select()</code> orders the columns in the desired left-right sequence. <code>mutate()</code> then adds a fifth column <code>scale_last</code>, which assigns the label <code>1</code> to the row containing the last item in each subscale. These rows are coded with <code>case_when</code>, and the labeled rows are those where a predicate returns <code>TRUE</code>: <em>either</em> the value of <code>scale</code> in the leading row is different <code>scale != lead(scale)</code>, <em>or</em> the value of scale in the leading row is missing <code>is.na(lead(scale))</code>. The latter condition is needed to capture the last row in the table, where there is no leading row. Finally, <code>mutate_at</code> is used to apply a function to an extant column <code>vars(item)</code>, the function <code>as.factor</code> passed by the formula sign <code>~</code>, to coerce <code>item</code> to factor as reqquire by downstream code.</p>
+<p>We now have a four-column data object. <code>select()</code> orders the columns in the desired left-right sequence. <code>mutate()</code> then adds a fifth column <code>scale_last</code>, which assigns the label <code>1</code> to the rows containing the last item in each subscale. These rows are labeled with <code>case_when</code>, and the labeled rows are those where a predicate returns <code>TRUE</code>: <em>either</em> the value of <code>scale</code> in the leading row is different <code>scale != lead(scale)</code>, <em>or</em> the value of scale in the leading row is missing <code>is.na(lead(scale))</code>. The latter condition is needed to capture the last row in the table, where there is no leading row. Finally, <code>mutate_at</code> is used to apply a function to an extant column <code>vars(item)</code>, the function <code>as.factor</code> passed by the formula sign <code>~</code>, to coerce <code>item</code> to factor as required by downstream code.</p>
 <pre class="r"><code>  select(id, item, response, scale) %&gt;%
   mutate(scale_last = case_when(scale != lead(scale) |
                                   is.na(lead(scale)) ~ 1,
                                 TRUE ~ NA_real_)) %&gt;%
   mutate_at(vars(item), ~ as.factor(.))</code></pre>
-<pre class="r"><code># add column that labels the row containing the last item in each scale/subtest.
-# This labeling is needed for BLIMP dummy coding, in which scale items are
-# dummy-coded relative to the last item in their assigned scale.
-input_gathered &lt;- input_gathered %&gt;% mutate(
-  scale_last = case_when(
-    scale != lead(scale) | is.na(lead(scale)) ~ 1,
-    TRUE ~ NA_real_
-  )
-)
-
-# use `recipes::step_dummy` to create the dummy codes.
+<p>The model to be imputed by BLIMP requires the item names to be represented as dummy-code columns. To capture subscale assignment, each item is dummy-coded relative to the <em>last</em> item in its subscale. Substantively, this means that each item receives a code of <code>1</code> in its particular dummy column, except for the last item in each subscale, which retains a code of <code>0</code>.</p>
+<p>Below is an example of this dummy-coding scheme, for a six-item test with two subscales: subcale 1, consisting of items 1, 2, and 3, and subscale 2, consisting of items 4, 5, and 6. Each item is represented in its own dummy-code column, <code>d1</code> to <code>d6</code>. The last items in the two scales are items 3 and 6. Notice how <code>d3</code> is coded <code>0</code> for item 3, and <code>d6</code> is coded <code>0</code> for item 6, denoting that these two items are the last items in their respective subscales.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Item</th>
+<th>Scale</th>
+<th>d1</th>
+<th>d2</th>
+<th>d3</th>
+<th>d4</th>
+<th>d5</th>
+<th>d6</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>recipes</code> package is used to generate the dummy-code columns.</p>
+<pre class="r"><code>dum &lt;- input_scale %&gt;% 
+  recipe(~ .) %&gt;% 
+  step_dummy(item, one_hot = T, preserve = T) %&gt;% 
+  prep(training = input_scale) %&gt;%
+  bake(new_data = input_scale) %&gt;% 
+  mutate_at(vars(starts_with(&quot;item_&quot;)), ~replace(., scale_last == 1, 0)) %&gt;% 
+  select(-scale_last)</code></pre>
+<pre class="r"><code># use `recipes::step_dummy` to create the dummy codes.
 dum &lt;- input_gathered %&gt;% 
   recipe(~ .) %&gt;% 
   step_dummy(item, one_hot = T, preserve = T) %&gt;% 

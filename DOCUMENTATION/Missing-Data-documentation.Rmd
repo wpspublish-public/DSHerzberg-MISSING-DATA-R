@@ -160,23 +160,31 @@ We now use `tibble::enframe()` to tranform this list into a data frame and assig
 
 ```{r prep_BLIMP_input, echo=29:34, eval=FALSE}
 ```
-We now have a four-column data object. `select()` orders the columns in the desired left-right sequence. `mutate()` then adds a fifth column `scale_last`, which assigns the label `1` to the rows containing the last item in each subscale. These rows are labeld with `case_when`, and the labeled rows are those where a predicate returns `TRUE`: _either_ the value of `scale` in the leading row is different `scale != lead(scale)`, _or_ the value of scale in the leading row is missing `is.na(lead(scale))`. The latter condition is needed to capture the last row in the table, where there is no leading row. Finally, `mutate_at` is used to apply a function to an extant column `vars(item)`, the function `as.factor` passed by the formula sign `~`, to coerce `item` to factor as required by downstream code.
+We now have a four-column data object. `select()` orders the columns in the desired left-right sequence. `mutate()` then adds a fifth column `scale_last`, which assigns the label `1` to the rows containing the last item in each subscale. These rows are labeled with `case_when`, and the labeled rows are those where a predicate returns `TRUE`: _either_ the value of `scale` in the leading row is different `scale != lead(scale)`, _or_ the value of scale in the leading row is missing `is.na(lead(scale))`. The latter condition is needed to capture the last row in the table, where there is no leading row. Finally, `mutate_at` is used to apply a function to an extant column `vars(item)`, the function `as.factor` passed by the formula sign `~`, to coerce `item` to factor as required by downstream code.
 
 ```{r prep_BLIMP_input, echo=35:39, eval=FALSE}
+```
+
+The model to be imputed by BLIMP requires the item names to be represented as dummy-code columns. To capture subscale assignment, each item is dummy-coded relative to the _last_ item in its subscale. Substantively, this means that each item receives a code of `1` in its particular dummy column, except for the last item in each subscale, which retains a code of `0`.
+
+Below is an example of this dummy-coding scheme, for a six-item test with two subscales: subcale 1, consisting of items 1, 2, and 3, and subscale 2, consisting of items 4, 5, and 6. Each item is represented in its own dummy-code column, `d1` to `d6`. The last items in the two scales are items 3 and 6. Notice how `d3` is coded `0` for item 3, and `d6` is coded `0` for item 6, denoting that these two items are the last items in their respective subscales.
+
+Item          | Scale         | d1            | d2            | d3            | d4            | d5            | d6            
+------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | -------------
+1             | 1             | 1             | 0             | 0             | 0             | 0             | 0
+2             | 1             | 0             | 1             | 0             | 0             | 0             | 0
+3             | 1             | 0             | 0             | 0             | 0             | 0             | 0
+4             | 2             | 0             | 0             | 0             | 1             | 0             | 0
+5             | 2             | 0             | 0             | 0             | 0             | 1             | 0
+6             | 2             | 0             | 0             | 0             | 0             | 0             | 0
+
+The `recipes` package is used to generate the dummy-code columns.
+```{r prep_BLIMP_input, echo=41:47, eval=FALSE}
 ```
 
 
 ```{r read_input1, eval=FALSE}
  
-# add column that labels the row containing the last item in each scale/subtest.
-# This labeling is needed for BLIMP dummy coding, in which scale items are
-# dummy-coded relative to the last item in their assigned scale.
-input_gathered <- input_gathered %>% mutate(
-  scale_last = case_when(
-    scale != lead(scale) | is.na(lead(scale)) ~ 1,
-    TRUE ~ NA_real_
-  )
-)
 
 # use `recipes::step_dummy` to create the dummy codes.
 dum <- input_gathered %>% 
