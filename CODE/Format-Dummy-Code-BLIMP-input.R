@@ -40,7 +40,6 @@ input_gathered <- input_orig %>%
 input_scale <- enframe(scale_assign) %>%
   unnest(item = value) %>%
   rename (scale = name) %>%
-  # mutate_all(as.integer) %>%
   right_join(input_gathered, by = "item") %>%
   select(id, item, response, scale) %>%
   mutate(scale_last = case_when(scale != lead(scale) |

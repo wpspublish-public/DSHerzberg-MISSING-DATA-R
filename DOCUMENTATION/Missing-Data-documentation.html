@@ -245,7 +245,6 @@ input_gathered &lt;- input_orig %&gt;%
 input_scale &lt;- enframe(scale_assign) %&gt;%
   unnest(item = value) %&gt;%
   rename (scale = name) %&gt;%
-  mutate_all(as.integer) %&gt;%
   right_join(input_gathered, by = &quot;item&quot;) %&gt;%
   select(id, item, response, scale) %&gt;%
   mutate(scale_last = case_when(scale != lead(scale) |
@@ -426,12 +425,11 @@ names(scale_assign) &lt;- scale_num</code></pre>
 <li><code>name</code>: the numeric names of the subscales</li>
 <li><code>value</code>: a list-column containing the integer ranges representing the item assignments for each subscale. In a sense, these ranges of items are nested within each value of name (each subscale)</li>
 </ul>
-<p><code>tidyr::unnest()</code> operates on the list-column, making each element of each integer range in the list into its own row. The data object now has the same number of rows as the number of items in the test, with each item in the <code>item</code> column paired with its subscale name in the <code>name</code> column. <code>dplyr::rename()</code> renames the <code>name</code> column to <code>scale</code>. <code>mutate_all()</code> coerces all columns to integer.</p>
+<p><code>tidyr::unnest()</code> operates on the list-column, making each element of each integer range in the list into its own row. The data object now has the same number of rows as the number of items in the test, with each item in the <code>item</code> column paired with its subscale name in the <code>name</code> column. <code>dplyr::rename()</code> renames the <code>name</code> column to <code>scale</code>.</p>
 <p><code>dplyr::right_join()</code> is used to add the <code>scale</code> column to <code>input_gathered</code>. In this call, <code>right_join</code> returns all rows from the RHS data frame, which is the tall table <code>input_gathered</code>. The two tables are matched by the <code>item</code> column, meaning that each time an <code>item</code> number appears, it is paired with its corresponding <code>scale</code> number, which appears in the <code>scale</code> column. This item-scale correspondence is replicated down the entire length of the tall data object.</p>
 <pre class="r"><code>input_scale &lt;- enframe(scale_assign) %&gt;%
   unnest(item = value) %&gt;%
   rename (scale = name) %&gt;%
-  mutate_all(as.integer) %&gt;%
   right_join(input_gathered, by = &quot;item&quot;) %&gt;%</code></pre>
 <p>We now have a four-column data object. <code>select()</code> orders the columns in the desired left-right sequence. <code>mutate()</code> then adds a fifth column <code>scale_last</code>, which assigns the label <code>1</code> to the rows containing the last item in each subscale. These rows are labeled with <code>case_when</code>, and the labeled rows are those where a predicate returns <code>TRUE</code>: <em>either</em> the value of <code>scale</code> in the leading row is different <code>scale != lead(scale)</code>, <em>or</em> the value of scale in the leading row is missing <code>is.na(lead(scale))</code>. The latter condition is needed to capture the last row in the table, where there is no leading row. Finally, <code>mutate_at</code> is used to apply a function to an extant column <code>vars(item)</code>, the function <code>as.factor</code> passed by the formula sign <code>~</code>, to coerce <code>item</code> to factor as required by downstream code.</p>
 <pre class="r"><code>  select(id, item, response, scale) %&gt;%
@@ -517,7 +515,9 @@ names(scale_assign) &lt;- scale_num</code></pre>
 </tr>
 </tbody>
 </table>
-<p>The <code>recipes</code> package is used to generate the dummy-code columns.</p>
+<p>We can generate the dummy-code columns with the <code>recipes</code> package, which pre-processes input data for modeling or visualization. The following snippet assigns <code>input_scale</code> to <code>dum</code>, to which the new columns will be appended.</p>
+<p><code>recipe(~ .)</code> creates a basic recipe object for further processing, including all columns and rows of the input. <code>step_dummy()</code> is the processing step for creating the dummy-code colums for the variable <code>item</code>. The variable to be dummy-coded must be coerced to <code>factor</code> prior to processing. <code>one_hot = T</code> ensures that dummy columns will be created for ALL values of <code>item</code>; <code>preserve = T</code> retains the <code>item</code> column in the output data object. <code>prep()</code> is a required step, this estimates the parameters required to complete processing, based on the data frame specified in the argument <code>training</code>. <code>bake()</code> is the step required to actually append the new dummy-code columns (the names of which begin with the prefix <code>item_</code>) to the input argument.</p>
+<p><code>mutate_at()</code> is used to modify the new dummy-code colums so that each item is coded relative to the last item in its scale. <code>vars(starts_with(&quot;item_&quot;))</code> identifies the scope of <code>mutate_at()</code>, i.e., those columns whose names begin with the prefix <code>item_</code>. The function to be applied to these columns, via the <code>~</code> operator, is <code>base::replace()</code>. Its arguments are <code>.</code>, indicating that it will operate on the piped data, <code>scale_last == 1</code>, indicating that it will replace values in the rows that contain the last item in each subscale, and <code>0</code>, the replacement value. <code>select()</code> is used to drop the <code>scale_last</code> column, which is not needed in the BLIMP input data.</p>
 <pre class="r"><code>dum &lt;- input_scale %&gt;% 
   recipe(~ .) %&gt;% 
   step_dummy(item, one_hot = T, preserve = T) %&gt;% 
@@ -525,19 +525,11 @@ names(scale_assign) &lt;- scale_num</code></pre>
   bake(new_data = input_scale) %&gt;% 
   mutate_at(vars(starts_with(&quot;item_&quot;)), ~replace(., scale_last == 1, 0)) %&gt;% 
   select(-scale_last)</code></pre>
-<pre class="r"><code># use `recipes::step_dummy` to create the dummy codes.
-dum &lt;- input_gathered %&gt;% 
-  recipe(~ .) %&gt;% 
-  step_dummy(item, one_hot = T, preserve = T) %&gt;% 
-  prep(training = input_gathered) %&gt;%
-  bake(new_data = input_gathered) %&gt;% 
-  mutate_at(vars(starts_with(&quot;item_&quot;)), ~replace(., scale_last == 1, 0)) %&gt;% 
-  select(-scale_last)
-
-# write the input file for BLIMP, stripping the column names as required. The
-# input file is written to the top folder of the RStudio project. The BLIMP
-# script must also be located in this folder
-write_csv(dum, here('BLIMP-input.csv'), col_names = F)</code></pre>
+<p>Write the input file for BLIMP, stripping the column names <code>col_names = F</code> as required. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder</p>
+<pre class="r"><code>write_csv(dum,
+          here(paste0(file_name, '-BLIMP-input.csv')),
+          col_names = F
+)</code></pre>
 <p><br></p>
 </div>
 </div>
@@ -546,7 +538,7 @@ write_csv(dum, here('BLIMP-input.csv'), col_names = F)</code></pre>
 <p>After processing in R, the input data has the following structure:</p>
 <ul>
 <li>Left-most four columns are PersonID, item number, item response, numerical label for item-scale assignment</li>
-<li>Al columns to the right of these four are dummy codes, in which each scale item is dummy coded relative to the last item in that scale</li>
+<li>All columns to the right of these four are dummy-code columns, in which each subscale item is dummy-coded relative to the last item in that subscale, such that all items are coded <code>1</code> except for the last item in each subscale, which is coded <code>0</code>.</li>
 </ul>
 <div id="this-code-can-be-run-in-blimp-studio" class="section level6">
 <h6>THIS CODE CAN BE RUN IN BLIMP STUDIO</h6>
@@ -574,14 +566,14 @@ VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4
 <p>Variables on <code>NOMINAL</code> line are recoded into dummy codes at imputation.</p>
 <pre class="r"><code>ORDINAL: response;
 NOMINAL: scalenum;</code></pre>
-<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, values of <code>itemnum</code> are nested within each value of ‘id’.</p>
+<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, values of <code>itemnum</code> are nested within each value of <code>id</code>.</p>
 <pre class="r"><code>FIXED: scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10;
 CLUSTERID: id;</code></pre>
 <p><code>MISSING</code> designates the missing data code. In this <code>MODEL</code>, response is regressed on the dummy-coded scale variables (created by <code>NOMINAL</code> command) and the dummy-coded item item variables (represented in columns in the input .csv).</p>
 <p>The expression <code>| scalenum</code> allows the model to estimate individual differences for each scale. This is a flexible model in which the only assumption is that within-scale factor loadings (thetas) are identical. Items within scales can have unique means, and thetas can vary across scales and between persons.</p>
 <pre class="r"><code>MISSING: 999;
 MODEL: response ~ scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10 | scalenum;</code></pre>
-<p>Set <code>SEED</code> so that output is identical on each run. <code>BURN</code> runs 1000 iterations before saving the first imputed data set, to allow parameter estimates to stabilize. Number of <code>BURN</code> iterations needs to be recalibrated for each new data set by examining psr, plots. <code>ITERATIONS</code> conrols how many iterations are run after completing burn-in, set this to at least 1000 to ensure stable parameter estimates.</p>
+<p>Set <code>SEED</code> so that output is identical on each run. <code>BURN</code> runs 1000 iterations before saving the first imputed data set, to allow parameter estimates to stabilize. Number of <code>BURN</code> iterations needs to be recalibrated for each new data set by examining psr, plots. <code>ITERATIONS</code> controls how many iterations are run after completing burn-in, set this to at least 1000 to ensure stable parameter estimates.</p>
 <pre class="r"><code>SEED: 90291;
 BURN: 1000; 
 ITERATIONS: 1000;</code></pre>
