@@ -195,9 +195,9 @@ $(document).ready(function () {
 
 <div id="overview" class="section level3">
 <h3>Overview</h3>
-<p>This documents a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.</p>
+<p>This documentation covers a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.</p>
 <p>The code is flexible: it can handle any number of items, subscales, and item-scale assignments.</p>
-<p>Code assumes a typical RStudio project folder hierarchy, with <code>INPUT-FILES</code> and <code>OUTPUT-FILES</code> folders at the first level.</p>
+<p>The code assumes a typical RStudio project folder hierarchy, with <code>INPUT-FILES</code> and <code>OUTPUT-FILES</code> folders at the first level.</p>
 </div>
 <div id="prepare-data-for-blimp" class="section level3">
 <h3>Prepare data for BLIMP</h3>
@@ -215,7 +215,7 @@ $(document).ready(function () {
 <h6>VALID CODE TO RUN</h6>
 <pre class="r"><code>suppressMessages(library(here))
 suppressMessages(library(tidyverse))
-suppressMessages(library(recipes))
+suppressMessages(library(fastDummies))
 
 id &lt;- c('{TOKEN}')
 first_item &lt;- c('{TOKEN}')
@@ -229,6 +229,7 @@ input_orig &lt;- suppressMessages(read_csv(here(
   paste0('INPUT-FILES/', file_name, '.csv')
 ))) %&gt;% 
   select(id, first_item:last_item)
+names_input_orig &lt;- names(input_orig)
 
 NA_count &lt;- input_orig %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
   mutate(
@@ -253,10 +254,7 @@ input_scale &lt;- enframe(scale_assign) %&gt;%
   mutate_at(vars(item), ~ as.factor(.))
 
 dum &lt;- input_scale %&gt;% 
-  recipe(~ .) %&gt;% 
-  step_dummy(item, one_hot = T, preserve = T) %&gt;% 
-  prep(training = input_scale) %&gt;%
-  bake(new_data = input_scale) %&gt;% 
+  dummy_cols(select_columns = 'item') %&gt;% 
   mutate_at(vars(starts_with(&quot;item_&quot;)), ~replace(., scale_last == 1, 0)) %&gt;% 
   select(-scale_last)
 
@@ -284,11 +282,12 @@ file_name &lt;- c('{FILE-NAME}')
 scale_assign &lt;- list({TOKEN})
 scale_num &lt;- {TOKEN}
 names(scale_assign) &lt;- scale_num</code></pre>
-<p>Read the input table into <code>input_orig</code>. Keep only the <code>id</code> and <code>item</code> columns.</p>
+<p>Read the input table into <code>input_orig</code>. Keep only the <code>id</code> and <code>item</code> columns. Assign the column names of <code>input_org</code> to an object for later use.</p>
 <pre class="r"><code>input_orig &lt;- suppressMessages(read_csv(here(
   paste0('INPUT-FILES/', file_name, '.csv')
 ))) %&gt;% 
-  select(id, first_item:last_item)</code></pre>
+  select(id, first_item:last_item)
+names_input_orig &lt;- names(input_orig)</code></pre>
 <p>Count the <code>NA</code> cells across all items and persons in the input table. <code>dplyr::summarise_all</code> applies a summary function across all columns in the input table. In this instance, <code>base::is.na()</code> is the kernel function, which returns a logical <code>TRUE</code> for each <code>NA</code> cell (the <code>.</code> shorthand indicates the function is being applied to the piped data object). This is wrapped in <code>~sum()</code>, which returns a sum of the <code>TRUE</code>s for each column. This complete expression is passed to <code>summarise_all()</code> within a <code>list()</code>, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of <code>NA</code> within each item column, retaining the original column names. <code>mutate()</code> is used to create the new column <code>all_NA</code>, which is the sum <code>base:rowSums</code> of the <code>NA</code> across all item columns. The columns to be summed are captured by the expression <code>.[2:ncol(.)]</code>, which refers to the piped data object <code>.</code>, subsetted by columns <code>[]</code>, including the 2nd through the last column (indicated by <code>ncol(.)</code>, the number of columns in the piped object).</p>
 <pre class="r"><code>NA_count &lt;- input_orig %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
   mutate(
@@ -515,14 +514,10 @@ names(scale_assign) &lt;- scale_num</code></pre>
 </tr>
 </tbody>
 </table>
-<p>We can generate the dummy-code columns with the <code>recipes</code> package, which pre-processes input data for modeling or visualization. The following snippet assigns <code>input_scale</code> to <code>dum</code>, to which the new columns will be appended.</p>
-<p><code>recipe(~ .)</code> creates a basic recipe object for further processing, including all columns and rows of the input. <code>step_dummy()</code> is the processing step for creating the dummy-code colums for the variable <code>item</code>. The variable to be dummy-coded must be coerced to <code>factor</code> prior to processing. <code>one_hot = T</code> ensures that dummy columns will be created for ALL values of <code>item</code>; <code>preserve = T</code> retains the <code>item</code> column in the output data object. <code>prep()</code> is a required step, this estimates the parameters required to complete processing, based on the data frame specified in the argument <code>training</code>. <code>bake()</code> is the step required to actually append the new dummy-code columns (the names of which begin with the prefix <code>item_</code>) to the input argument.</p>
+<p>We can generate the dummy-code columns with the <code>fastDummies</code> package. The following snippet assigns <code>input_scale</code> to <code>dum</code>, to which the new columns will be appended. <code>fastDummies::dummy_cols()</code> creates the dummy columns; the variable to be dummy-coded must be coerced to <code>factor</code> prior to processing. The argument <code>select_columns</code> is used to specify the variable(s) that will be dummy coded. The new dummy columns are named with the format <code>[variableName]_[variableValue]</code> (e.g., “item 3” becomes <code>item_3</code>)</p>
 <p><code>mutate_at()</code> is used to modify the new dummy-code colums so that each item is coded relative to the last item in its scale. <code>vars(starts_with(&quot;item_&quot;))</code> identifies the scope of <code>mutate_at()</code>, i.e., those columns whose names begin with the prefix <code>item_</code>. The function to be applied to these columns, via the <code>~</code> operator, is <code>base::replace()</code>. Its arguments are <code>.</code>, indicating that it will operate on the piped data, <code>scale_last == 1</code>, indicating that it will replace values in the rows that contain the last item in each subscale, and <code>0</code>, the replacement value. <code>select()</code> is used to drop the <code>scale_last</code> column, which is not needed in the BLIMP input data.</p>
 <pre class="r"><code>dum &lt;- input_scale %&gt;% 
-  recipe(~ .) %&gt;% 
-  step_dummy(item, one_hot = T, preserve = T) %&gt;% 
-  prep(training = input_scale) %&gt;%
-  bake(new_data = input_scale) %&gt;% 
+  dummy_cols(select_columns = 'item') %&gt;% 
   mutate_at(vars(starts_with(&quot;item_&quot;)), ~replace(., scale_last == 1, 0)) %&gt;% 
   select(-scale_last)</code></pre>
 <p>Write the input file for BLIMP, stripping the column names <code>col_names = F</code> as required. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder</p>

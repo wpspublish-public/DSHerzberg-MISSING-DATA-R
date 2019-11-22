@@ -1,7 +1,7 @@
 # Structure of input data file: left-most columns are PersonID, item number, item response, numerical label for item-scale assignment
 # Remaining columns to the right of these four are dummy codes, in which each scale item is dummy coded relative to the last item in that scale
 # See R script for how dummy codes are created.
-DATA: test.csv;
+DATA: SPM-P-data-i-num-BLIMP-input.csv;
 # Var names to the right of scalenum are the dummy codes (d) for each of eight scales (s)
 VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4d23 s5d1-s5d8 s6d1-s6d14 s7d1-s7d16 s8d1-s8d11;
 ORDINAL: response;
