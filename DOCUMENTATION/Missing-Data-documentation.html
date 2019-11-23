@@ -234,6 +234,7 @@ names_input_orig &lt;- names(input_orig)
 NA_count &lt;- input_orig %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
   mutate(
     all_NA = rowSums(.[2:ncol(.)]))
+NA_count$all_NA
 
 input_orig[is.na(input_orig)] &lt;- 999
 
@@ -288,10 +289,10 @@ names(scale_assign) &lt;- scale_num</code></pre>
 ))) %&gt;% 
   select(id, first_item:last_item)
 names_input_orig &lt;- names(input_orig)</code></pre>
-<p>Count the <code>NA</code> cells across all items and persons in the input table. <code>dplyr::summarise_all</code> applies a summary function across all columns in the input table. In this instance, <code>base::is.na()</code> is the kernel function, which returns a logical <code>TRUE</code> for each <code>NA</code> cell (the <code>.</code> shorthand indicates the function is being applied to the piped data object). This is wrapped in <code>~sum()</code>, which returns a sum of the <code>TRUE</code>s for each column. This complete expression is passed to <code>summarise_all()</code> within a <code>list()</code>, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of <code>NA</code> within each item column, retaining the original column names. <code>mutate()</code> is used to create the new column <code>all_NA</code>, which is the sum <code>base:rowSums</code> of the <code>NA</code> across all item columns. The columns to be summed are captured by the expression <code>.[2:ncol(.)]</code>, which refers to the piped data object <code>.</code>, subsetted by columns <code>[]</code>, including the 2nd through the last column (indicated by <code>ncol(.)</code>, the number of columns in the piped object).</p>
-<pre class="r"><code>NA_count &lt;- input_orig %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
-  mutate(
-    all_NA = rowSums(.[2:ncol(.)]))</code></pre>
+<p>Count the <code>NA</code> cells across all items and persons in the input table. <code>dplyr::summarise_all</code> applies a summary function across all columns in the input table. In this instance, <code>base::is.na()</code> is the kernel function, which returns a logical <code>TRUE</code> for each <code>NA</code> cell (the <code>.</code> shorthand indicates the function is being applied to the piped data object). This is wrapped in <code>~sum()</code>, which returns a sum of the <code>TRUE</code>s for each column. This complete expression is passed to <code>summarise_all()</code> within a <code>list()</code>, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of <code>NA</code> within each item column, retaining the original column names. <code>mutate()</code> is used to create the new column <code>all_NA</code>, which is the sum <code>base:rowSums</code> of the <code>NA</code> across all item columns. The columns to be summed are captured by the expression <code>.[2:ncol(.)]</code>, which refers to the piped data object <code>.</code>, subsetted by columns <code>[]</code>, including the 2nd through the last column (indicated by <code>ncol(.)</code>, the number of columns in the piped object). <code>NA_count$all_NA</code> prints the count of <code>NA</code> to the console.</p>
+<pre class="r"><code>  mutate(
+    all_NA = rowSums(.[2:ncol(.)]))
+NA_count$all_NA</code></pre>
 <p>Recode the <code>NA</code> in the input to <code>999</code>, the BLIMP prefered missing value code. Assign the value <code>999</code> to the subset of cells within <code>input_orig</code> for which the predicate (logical) expression <code>is.na(input_orig)</code> returns <code>TRUE</code>.</p>
 <pre class="r"><code>input_orig[is.na(input_orig)] &lt;- 999</code></pre>
 <p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. Thus each person has the same number of rows as the number of items. Within each set of person-rows, the left-right sequence of columns (item names) in the input file is represented in the <code>item</code> column, going down the rows. In the <code>response</code> column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.</p>
@@ -582,22 +583,170 @@ SAVE: separate = model4imp*.csv;</code></pre>
 <div id="reformat-imputed-data-set-for-downstream-analysis" class="section level3">
 <h3>Reformat imputed data set for downstream analysis</h3>
 <p>The imputed data set is in a tall (gathered) format with the dummy code columns. This code restores the data to its original input structure and writes an output file.</p>
-<pre class="r"><code>spm_p_noMiss &lt;- suppressMessages(
+<div id="valid-code-to-run-1" class="section level6">
+<h6>VALID CODE TO RUN</h6>
+<pre class="r"><code>temp1 &lt;- suppressMessages(
   read_csv(
-    (here('model4imp1.csv')), 
-  col_names = c('id', 'item', 'response'))[1:3]) %&gt;% 
-  spread(item, response)
-names(spm_p_noMiss) &lt;- names_input
+    (here('model4imp1.csv')), col_names = F)[1:3])
+names(temp1) &lt;- c('id', 'item', 'response')
+temp2 &lt;- temp1 %&gt;% 
+  spread(item, response) 
+names(temp2) &lt;- names_input_orig
 
-# Count NA across all columns
-NA_count_noMiss &lt;- spm_p_noMiss %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
+NA_count_noMiss &lt;- temp2 %&gt;% summarise_all(list(~sum(. == 999))) %&gt;%
   mutate(
-    all_NA = rowSums(.[2:115]))
+    all_NA = rowSums(.[2:ncol(.)]))
 NA_count_noMiss$all_NA
 
-# Write output
-write_csv(spm_p_noMiss, here('OUTPUT-FILES/SPM-P-noMiss.csv'))</code></pre>
+write_csv(temp2, here(
+  paste0(
+    'OUTPUT-FILES/',
+    file_name,
+    '-noMiss.csv'
+  )
+))</code></pre>
 <p><br></p>
+</div>
+<div id="commented-snippets-2" class="section level6">
+<h6>COMMENTED SNIPPETS</h6>
+<p>The imputed data file <code>model4imp1.csv</code> has no column names, so <code>read_csv</code> must be called with the <code>col_names = F</code> argument (otherwise, the first row of data will be used as column names). Subsetting <code>[1:3]</code> is used to read in only the three left-most columns. Column names are applied from a character vector using <code>names()</code>.</p>
+<pre class="r"><code>temp1 &lt;- suppressMessages(
+  read_csv(
+    (here('model4imp1.csv')), col_names = F)[1:3])
+names(temp1) &lt;- c('id', 'item', 'response')</code></pre>
+<p>The data object <code>temp1</code> is a tall table in which <code>item</code>s and their associated <code>response</code>s are nested within each person <code>id</code> number, as in the following example:</p>
+</div>
+<div id="before-1" class="section level6">
+<h6>Before</h6>
+<table>
+<thead>
+<tr class="header">
+<th>id</th>
+<th>item</th>
+<th>response</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1001</td>
+<td>i01</td>
+<td>2</td>
+</tr>
+<tr class="even">
+<td>1001</td>
+<td>i02</td>
+<td>2</td>
+</tr>
+<tr class="odd">
+<td>1001</td>
+<td>i03</td>
+<td>3</td>
+</tr>
+<tr class="even">
+<td>1001</td>
+<td>i04</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td>1002</td>
+<td>i01</td>
+<td>4</td>
+</tr>
+<tr class="even">
+<td>1002</td>
+<td>i02</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td>1002</td>
+<td>i03</td>
+<td>4</td>
+</tr>
+<tr class="even">
+<td>1002</td>
+<td>i04</td>
+<td>2</td>
+</tr>
+<tr class="odd">
+<td>1003</td>
+<td>i01</td>
+<td>3</td>
+</tr>
+<tr class="even">
+<td>1003</td>
+<td>i02</td>
+<td>2</td>
+</tr>
+<tr class="odd">
+<td>1003</td>
+<td>i03</td>
+<td>3</td>
+</tr>
+<tr class="even">
+<td>1003</td>
+<td>i04</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<p>The application of <code>tidyr::spread()</code> collapes the muliple rows of <code>id</code> into a single row. The call identifies the key-value pair: <code>item</code> (key) and <code>response</code> (value). The values of <code>item</code> are used to name new columns going wide across the table. The values of <code>response</code> become the cell entries at the intersection of each row <code>id</code> and column <code>item</code>. The table appears as in the example below:</p>
+</div>
+<div id="after-1" class="section level6">
+<h6>After</h6>
+<table>
+<thead>
+<tr class="header">
+<th>id</th>
+<th>i01</th>
+<th>i02</th>
+<th>i03</th>
+<th>i04</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1001</td>
+<td>2</td>
+<td>2</td>
+<td>3</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td>1002</td>
+<td>4</td>
+<td>1</td>
+<td>4</td>
+<td>2</td>
+</tr>
+<tr class="odd">
+<td>1003</td>
+<td>3</td>
+<td>2</td>
+<td>3</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<p>Thus, <code>spread()</code> restores the imputed data set to the same format as original input (which contained missing data). <code>names</code> is used to reapply the column names of the original input.</p>
+<p>The remainder of this code chunk verifies that the count of <code>NA</code> is 0, and writes the final output to .csv.</p>
+<pre class="r"><code>temp2 &lt;- temp1 %&gt;% 
+  spread(item, response) 
+names(temp2) &lt;- names_input_orig
+
+NA_count_noMiss &lt;- temp2 %&gt;% summarise_all(list(~sum(. == 999))) %&gt;%
+  mutate(
+    all_NA = rowSums(.[2:ncol(.)]))
+NA_count_noMiss$all_NA
+
+write_csv(temp2, here(
+  paste0(
+    'OUTPUT-FILES/',
+    file_name,
+    '-noMiss.csv'
+  )
+))</code></pre>
+<p><br></p>
+</div>
 </div>
 <div id="annotated-blimp-output" class="section level3">
 <h3>Annotated BLIMP output</h3>

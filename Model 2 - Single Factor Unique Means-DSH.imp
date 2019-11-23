@@ -1,0 +1,17 @@
+DATA: GOAL-data-i-num-BLIMP-input.csv;
+VARIABLES: id itemnum response d1-d132;
+ORDINAL: response;
+NOMINAL: itemnum;
+FIXED: itemnum;
+CLUSTERID: id;
+MISSING: 999;
+MODEL: response ~ itemnum;
+SEED: 90291;
+#NIMPS: 1;
+BURN: 2000;
+# THIN: 1; 
+ITERATIONS: 1000;
+OPTIONS: estimates;
+# OPTIONS: psr;
+# CHAINS: 4 processors 4;
+SAVE: separate = model2imp*.csv;

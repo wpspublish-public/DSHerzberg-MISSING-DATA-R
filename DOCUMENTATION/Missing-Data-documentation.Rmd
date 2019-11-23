@@ -51,6 +51,7 @@ names_input_orig <- names(input_orig)
 NA_count <- input_orig %>% summarise_all(list(~sum(is.na(.)))) %>%
   mutate(
     all_NA = rowSums(.[2:ncol(.)]))
+NA_count$all_NA
 
 input_orig[is.na(input_orig)] <- 999
 
@@ -98,11 +99,11 @@ The snippet below contains user-programmable input paramaters. Here are the toke
 Read the input table into `input_orig`. Keep only the `id` and `item` columns. Assign the column names of `input_org` to an object for later use.
 ```{r prep_BLIMP_input, echo=13:17, eval=FALSE}
 ```
-Count the `NA` cells across all items and persons in the input table. `dplyr::summarise_all` applies a summary function across all columns in the input table. In this instance, `base::is.na()` is the kernel function, which returns a logical `TRUE` for each `NA` cell (the `.` shorthand indicates the function is being applied to the piped data object). This is wrapped in `~sum()`, which returns a sum of the `TRUE`s for each column. This complete expression is passed to `summarise_all()` within a `list()`, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of `NA` within each item column, retaining the original column names. `mutate()` is used to create the new column `all_NA`, which is the sum `base:rowSums` of the `NA` across all item columns. The columns to be summed are captured by the expression `.[2:ncol(.)]`, which refers to the piped data object `.`, subsetted by columns `[]`, including the 2nd through the last column (indicated by `ncol(.)`, the number of columns in the piped object).
-```{r prep_BLIMP_input, echo=19:21, eval=FALSE}
+Count the `NA` cells across all items and persons in the input table. `dplyr::summarise_all` applies a summary function across all columns in the input table. In this instance, `base::is.na()` is the kernel function, which returns a logical `TRUE` for each `NA` cell (the `.` shorthand indicates the function is being applied to the piped data object). This is wrapped in `~sum()`, which returns a sum of the `TRUE`s for each column. This complete expression is passed to `summarise_all()` within a `list()`, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of `NA` within each item column, retaining the original column names. `mutate()` is used to create the new column `all_NA`, which is the sum `base:rowSums` of the `NA` across all item columns. The columns to be summed are captured by the expression `.[2:ncol(.)]`, which refers to the piped data object `.`, subsetted by columns `[]`, including the 2nd through the last column (indicated by `ncol(.)`, the number of columns in the piped object). `NA_count$all_NA` prints the count of `NA` to the console.
+```{r prep_BLIMP_input, echo=20:22, eval=FALSE}
 ```
 Recode the `NA` in the input to `999`, the BLIMP prefered missing value code. Assign the value `999` to the subset of cells within `input_orig` for which the predicate (logical) expression `is.na(input_orig)` returns `TRUE`.
-```{r prep_BLIMP_input, echo=23, eval=FALSE}
+```{r prep_BLIMP_input, echo=24, eval=FALSE}
 ```
 Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. Thus each person has the same number of rows as the number of items. Within each set of person-rows, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.
 
@@ -135,10 +136,10 @@ ID            | Item          | Response
 1003          | i03           | 3
 1003          | i04           | 4
 
-```{r prep_BLIMP_input, echo=25:26, eval=FALSE}
+```{r prep_BLIMP_input, echo=26:27, eval=FALSE}
 ```
 `dplyr::group_by(id)` collects the rows with identical values of `id`, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the data by `id`. `mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to an integer by wrapping the expression in `as.integer()`.
-```{r prep_BLIMP_input, echo=27:29, eval=FALSE}
+```{r prep_BLIMP_input, echo=28:30, eval=FALSE}
 ```
 `input_gathered` has three columns: `id`, `item`, and `response`. We now add a column that provides each item's subscale assignment.
 
@@ -155,11 +156,11 @@ We now use `tibble::enframe()` to tranform this list into a data frame and assig
 
 `dplyr::right_join()` is used to add the `scale` column to `input_gathered`. In this call, `right_join` returns all rows from the RHS data frame, which is the tall table `input_gathered`. The two tables are matched by the `item` column, meaning that each time an `item` number appears, it is paired with its corresponding `scale` number, which appears in the `scale` column. This item-scale correspondence is replicated down the entire length of the tall data object.
 
-```{r prep_BLIMP_input, echo=30:34, eval=FALSE}
+```{r prep_BLIMP_input, echo=31:35, eval=FALSE}
 ```
 We now have a four-column data object. `select()` orders the columns in the desired left-right sequence. `mutate()` then adds a fifth column `scale_last`, which assigns the label `1` to the rows containing the last item in each subscale. These rows are labeled with `case_when`, and the labeled rows are those where a predicate returns `TRUE`: _either_ the value of `scale` in the leading row is different `scale != lead(scale)`, _or_ the value of scale in the leading row is missing `is.na(lead(scale))`. The latter condition is needed to capture the last row in the table, where there is no leading row. Finally, `mutate_at` is used to apply a function to an extant column `vars(item)`, the function `as.factor` passed by the formula sign `~`, to coerce `item` to factor as required by downstream code.
 
-```{r prep_BLIMP_input, echo=35:39, eval=FALSE}
+```{r prep_BLIMP_input, echo=36:40, eval=FALSE}
 ```
 
 The model to be imputed by BLIMP requires the item names to be represented as dummy-code columns. To capture subscale assignment, each item is dummy-coded relative to the _last_ item in its subscale. Substantively, this means that each item receives a code of `1` in its particular dummy column, except for the last item in each subscale, which retains a code of `0`.
@@ -178,12 +179,12 @@ Item          | Scale         | d1            | d2            | d3            | 
 We can generate the dummy-code columns with the `fastDummies` package. The following snippet assigns `input_scale` to `dum`, to which the new columns will be appended. `fastDummies::dummy_cols()` creates the dummy columns; the variable to be dummy-coded must be coerced to `factor` prior to processing. The argument `select_columns` is used to specify the variable(s) that will be dummy coded. The new dummy columns are named with the format `[variableName]_[variableValue]` (e.g., "item 3" becomes `item_3`)
 
 `mutate_at()` is used to modify the new dummy-code colums so that each item is coded relative to the last item in its scale. `vars(starts_with("item_"))` identifies the scope of `mutate_at()`, i.e., those columns whose names begin with the prefix `item_`. The function to be applied to these columns, via the `~` operator, is `base::replace()`. Its arguments are `.`, indicating that it will operate on the piped data, `scale_last == 1`, indicating that it will replace values in the rows that contain the last item in each subscale, and `0`, the replacement value. `select()` is used to drop the `scale_last` column, which is not needed in the BLIMP input data.
-```{r prep_BLIMP_input, echo=41:44, eval=FALSE}
+```{r prep_BLIMP_input, echo=42:45, eval=FALSE}
 ```
 Write the input file for BLIMP, stripping the column names `col_names = F` as required. The
 input file is written to the top folder of the RStudio project. The BLIMP
 script must also be located in this folder
-```{r prep_BLIMP_input, echo=46:49, eval=FALSE}
+```{r prep_BLIMP_input, echo=47:50, eval=FALSE}
 ```
 
 <br>
@@ -244,22 +245,71 @@ Set `SEED` so that output is identical on each run. `BURN` runs 1000 iterations 
 
 The imputed data set is in a tall (gathered) format with the dummy code columns. This code restores the data to its original input structure and writes an output file.
 
-```{r reformat_impute, eval=FALSE}
-spm_p_noMiss <- suppressMessages(
-  read_csv(
-    (here('model4imp1.csv')), 
-  col_names = c('id', 'item', 'response'))[1:3]) %>% 
-  spread(item, response)
-names(spm_p_noMiss) <- names_input
+###### VALID CODE TO RUN
 
-# Count NA across all columns
-NA_count_noMiss <- spm_p_noMiss %>% summarise_all(list(~sum(is.na(.)))) %>%
+```{r reformat_impute, eval=FALSE}
+temp1 <- suppressMessages(
+  read_csv(
+    (here('model4imp1.csv')), col_names = F)[1:3])
+names(temp1) <- c('id', 'item', 'response')
+temp2 <- temp1 %>% 
+  spread(item, response) 
+names(temp2) <- names_input_orig
+
+NA_count_noMiss <- temp2 %>% summarise_all(list(~sum(. == 999))) %>%
   mutate(
-    all_NA = rowSums(.[2:115]))
+    all_NA = rowSums(.[2:ncol(.)]))
 NA_count_noMiss$all_NA
 
-# Write output
-write_csv(spm_p_noMiss, here('OUTPUT-FILES/SPM-P-noMiss.csv'))
+write_csv(temp2, here(
+  paste0(
+    'OUTPUT-FILES/',
+    file_name,
+    '-noMiss.csv'
+  )
+))
+```
+
+<br>
+
+###### COMMENTED SNIPPETS
+The imputed data file `model4imp1.csv` has no column names, so `read_csv` must be called with the `col_names = F` argument (otherwise, the first row of data will be used as column names). Subsetting `[1:3]` is used to read in only the three left-most columns. Column names are applied from a character vector using `names()`.
+```{r reformat_impute, echo=1:4, eval=FALSE}
+```
+The data object `temp1` is a tall table in which `item`s and their associated `response`s are nested within each person `id` number, as in the following example:
+
+###### Before
+
+id            | item          | response
+------------- | ------------- | -------------
+1001          | i01           | 2
+1001          | i02           | 2
+1001          | i03           | 3
+1001          | i04           | 1
+1002          | i01           | 4
+1002          | i02           | 1
+1002          | i03           | 4
+1002          | i04           | 2
+1003          | i01           | 3
+1003          | i02           | 2
+1003          | i03           | 3
+1003          | i04           | 4
+
+The application of `tidyr::spread()` collapes the muliple rows of `id` into a single row. The call identifies the key-value pair: `item` (key) and `response` (value). The values of `item` are used to name new columns going wide across the table. The values of `response` become the cell entries at the intersection of each row `id` and column `item`. The table appears as in the example below:
+
+###### After
+
+id            | i01           | i02           | i03           | i04
+------------- | ------------- | ------------- | ------------- | -------------
+1001          | 2             | 2             | 3             | 1
+1002          | 4             | 1             | 4             | 2
+1003          | 3             | 2             | 3             | 4
+
+Thus, `spread()` restores the imputed data set to the same format as original input (which contained missing data). `names` is used to reapply the column names of the original input.
+
+The remainder of this code chunk verifies that the count of `NA` is 0, and writes the final output to .csv.
+
+```{r reformat_impute, echo=5:20, eval=FALSE}
 ```
 
 <br>
