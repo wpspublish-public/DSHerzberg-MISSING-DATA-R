@@ -47,7 +47,7 @@ write_csv(dum,
 # Reformat imputed data set for downstream analysis 
 temp1 <- suppressMessages(
   read_csv(
-    (here('model4imp1.csv')), col_names = F)[1:3])
+    (here('model2imp1.csv')), col_names = F)[1:3])
 names(temp1) <- c('id', 'item', 'response')
 temp2 <- temp1 %>% 
   spread(item, response) 
