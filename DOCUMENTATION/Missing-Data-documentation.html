@@ -196,11 +196,16 @@ $(document).ready(function () {
 <div id="overview" class="section level3">
 <h3>Overview</h3>
 <p>This documentation covers a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.</p>
-<p>The code is flexible: it can handle any number of items, subscales, and item-scale assignments.</p>
+<p>The method can handle two general types of input data:</p>
+<ul>
+<li><strong>Multi-factor model</strong>: the test as has a factor structure in which items are assigned to multiple subscales.</li>
+<li><strong>Single-factor model</strong>: the test has a single factor/scale structure.</li>
+</ul>
+<p>The multi-factor code is flexible: it can handle any number of items, subscales, and item-scale assignments. The single-factor code is a simplified subset of the multi-factor code.</p>
 <p>The code assumes a typical RStudio project folder hierarchy, with <code>INPUT-FILES</code> and <code>OUTPUT-FILES</code> folders at the first level.</p>
 </div>
-<div id="prepare-data-for-blimp" class="section level3">
-<h3>Prepare data for BLIMP</h3>
+<div id="prepare-data-for-blimp-multi-factor-model" class="section level3">
+<h3>Prepare data for BLIMP: Multi-factor model</h3>
 <p>Input data should formatted with cases in rows and items in columns with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the <code>i001</code> consecutive nomenclature. The code then reassigns them to their scales/subtests as it reformats the input file.</p>
 <p>Once data are in this format, run the next block of code to restructure the input for BLIMP.</p>
 <p>Here and throughout, certain token markers are employed to designate user-input values that vary by project:</p>
@@ -231,10 +236,8 @@ input_orig &lt;- suppressMessages(read_csv(here(
   select(id, first_item:last_item)
 names_input_orig &lt;- names(input_orig)
 
-NA_count &lt;- input_orig %&gt;% summarise_all(list(~sum(is.na(.)))) %&gt;%
-  mutate(
-    all_NA = rowSums(.[2:ncol(.)]))
-NA_count$all_NA
+NA_count &lt;- sum(is.na(input_orig))
+NA_count
 
 input_orig[is.na(input_orig)] &lt;- 999
 
@@ -289,10 +292,9 @@ names(scale_assign) &lt;- scale_num</code></pre>
 ))) %&gt;% 
   select(id, first_item:last_item)
 names_input_orig &lt;- names(input_orig)</code></pre>
-<p>Count the <code>NA</code> cells across all items and persons in the input table. <code>dplyr::summarise_all</code> applies a summary function across all columns in the input table. In this instance, <code>base::is.na()</code> is the kernel function, which returns a logical <code>TRUE</code> for each <code>NA</code> cell (the <code>.</code> shorthand indicates the function is being applied to the piped data object). This is wrapped in <code>~sum()</code>, which returns a sum of the <code>TRUE</code>s for each column. This complete expression is passed to <code>summarise_all()</code> within a <code>list()</code>, which allows existing variables to be modified in-place by the summary function. The end result is a one-row table containing the counts of <code>NA</code> within each item column, retaining the original column names. <code>mutate()</code> is used to create the new column <code>all_NA</code>, which is the sum <code>base:rowSums</code> of the <code>NA</code> across all item columns. The columns to be summed are captured by the expression <code>.[2:ncol(.)]</code>, which refers to the piped data object <code>.</code>, subsetted by columns <code>[]</code>, including the 2nd through the last column (indicated by <code>ncol(.)</code>, the number of columns in the piped object). <code>NA_count$all_NA</code> prints the count of <code>NA</code> to the console.</p>
-<pre class="r"><code>  mutate(
-    all_NA = rowSums(.[2:ncol(.)]))
-NA_count$all_NA</code></pre>
+<p>Count the <code>NA</code> cells across all items and persons in the input table. <code>is.na()</code> returns <code>TRUE</code> for each table cell containing <code>NA</code>. Because logical <code>TRUE</code> is also coded as <code>1</code>, <code>sum()</code> returns the count of <code>NA</code> across all cells. <code>NA_count</code> prints this count to the console.</p>
+<pre class="r"><code>NA_count &lt;- sum(is.na(input_orig))
+NA_count</code></pre>
 <p>Recode the <code>NA</code> in the input to <code>999</code>, the BLIMP prefered missing value code. Assign the value <code>999</code> to the subset of cells within <code>input_orig</code> for which the predicate (logical) expression <code>is.na(input_orig)</code> returns <code>TRUE</code>.</p>
 <pre class="r"><code>input_orig[is.na(input_orig)] &lt;- 999</code></pre>
 <p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. Thus each person has the same number of rows as the number of items. Within each set of person-rows, the left-right sequence of columns (item names) in the input file is represented in the <code>item</code> column, going down the rows. In the <code>response</code> column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.</p>
@@ -529,6 +531,47 @@ NA_count$all_NA</code></pre>
 <p><br></p>
 </div>
 </div>
+<div id="prepare-data-for-blimp-single-factor-model" class="section level3">
+<h3>Prepare data for BLIMP: Single-factor model</h3>
+<p>The single-factor code is a simplified version of the multi-factor code; the comments and explanations above apply to this code as well.</p>
+<div id="valid-code-to-run-1" class="section level6">
+<h6>VALID CODE TO RUN</h6>
+<pre class="r"><code>suppressMessages(library(here))
+suppressMessages(library(tidyverse))
+suppressMessages(library(fastDummies))
+
+id &lt;- c('{TOKEN}')
+first_item &lt;- c('{TOKEN}')
+last_item &lt;- c('{TOKEN}')
+file_name &lt;- c('{FILE-NAME}')
+
+input_orig &lt;- suppressMessages(read_csv(here(
+  paste0('INPUT-FILES/', file_name, '.csv')
+))) %&gt;% 
+  select(id, first_item:last_item)
+names_input_orig &lt;- names(input_orig)
+
+NA_count &lt;- sum(is.na(input_orig))
+NA_count
+
+input_orig[is.na(input_orig)] &lt;- 999
+
+input_gathered &lt;- input_orig %&gt;%
+  gather('item','response',-id) %&gt;% 
+  group_by(id) %&gt;% 
+  arrange(id) %&gt;% 
+  mutate(item = as.factor(str_sub(item, 2, 4)))
+
+dum &lt;- input_gathered %&gt;% 
+  dummy_cols(select_columns = 'item')
+
+write_csv(dum,
+          here(paste0(file_name, '-BLIMP-input.csv')),
+          col_names = F
+)</code></pre>
+<p><br></p>
+</div>
+</div>
 <div id="run-blimp-script-on-prepped-data" class="section level3">
 <h3>Run BLIMP script on prepped data</h3>
 <p>After processing in R, the input data has the following structure:</p>
@@ -583,7 +626,7 @@ SAVE: separate = model4imp*.csv;</code></pre>
 <div id="reformat-imputed-data-set-for-downstream-analysis" class="section level3">
 <h3>Reformat imputed data set for downstream analysis</h3>
 <p>The imputed data set is in a tall (gathered) format with the dummy code columns. This code restores the data to its original input structure and writes an output file.</p>
-<div id="valid-code-to-run-1" class="section level6">
+<div id="valid-code-to-run-2" class="section level6">
 <h6>VALID CODE TO RUN</h6>
 <pre class="r"><code>temp1 &lt;- suppressMessages(
   read_csv(
@@ -593,10 +636,8 @@ temp2 &lt;- temp1 %&gt;%
   spread(item, response) 
 names(temp2) &lt;- names_input_orig
 
-NA_count_noMiss &lt;- temp2 %&gt;% summarise_all(list(~sum(. == 999))) %&gt;%
-  mutate(
-    all_NA = rowSums(.[2:ncol(.)]))
-NA_count_noMiss$all_NA
+NA_count &lt;- sum(temp2 == 999)
+NA_count
 
 write_csv(temp2, here(
   paste0(
@@ -728,15 +769,13 @@ names(temp1) &lt;- c('id', 'item', 'response')</code></pre>
 </tbody>
 </table>
 <p>Thus, <code>spread()</code> restores the imputed data set to the same format as original input (which contained missing data). <code>names</code> is used to reapply the column names of the original input.</p>
-<p>The remainder of this code chunk verifies that the count of <code>NA</code> is 0, and writes the final output to .csv.</p>
+<p>The remainder of this code chunk verifies that the count of <code>NA</code> (now coded as <code>999</code>) is 0, and writes the final output to .csv.</p>
 <pre class="r"><code>temp2 &lt;- temp1 %&gt;% 
   spread(item, response) 
 names(temp2) &lt;- names_input_orig
 
-NA_count_noMiss &lt;- temp2 %&gt;% summarise_all(list(~sum(. == 999))) %&gt;%
-  mutate(
-    all_NA = rowSums(.[2:ncol(.)]))
-NA_count_noMiss$all_NA
+NA_count &lt;- sum(temp2 == 999)
+NA_count
 
 write_csv(temp2, here(
   paste0(

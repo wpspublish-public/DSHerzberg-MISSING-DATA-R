@@ -16,11 +16,9 @@ input_orig <- suppressMessages(read_csv(here(
 ))) %>% 
   select(id, first_item:last_item)
 names_input_orig <- names(input_orig)
-# Count NA accross all columns
-NA_count <- input_orig %>% summarise_all(list(~sum(is.na(.)))) %>%
-  mutate(
-    all_NA = rowSums(.[2:ncol(.)]))
-NA_count$all_NA
+# Count NA across all columns
+NA_count <- sum(is.na(input_orig))
+NA_count
 # replace all NA with 999
 input_orig[is.na(input_orig)] <- 999
 # gather cols into nested (multi-level) format. Tall table has id, item,
@@ -54,10 +52,8 @@ temp2 <- temp1 %>%
 names(temp2) <- names_input_orig
 
 # Count NA across all columns
-NA_count_noMiss <- temp2 %>% summarise_all(list(~sum(. == 999))) %>%
-  mutate(
-    all_NA = rowSums(.[2:ncol(.)]))
-NA_count_noMiss$all_NA
+NA_count <- sum(temp2 == 999)
+NA_count
 
 # Write output
 write_csv(temp2, here(
