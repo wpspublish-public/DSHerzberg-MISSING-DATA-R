@@ -326,14 +326,13 @@ In order to run as written, the `DATA` command must name a file located in the s
 The expression `| scalenum` allows the model to estimate individual differences for each subscale score. This is a flexible model in which the only assumption is that within-subscale factor loadings (thetas) are identical. Items within scales can have unique means, and thetas can vary across scales and between persons.
 ```{r BLIMP, echo=7:8, eval=FALSE}
 ```
+`SEED` sets BLIMP's random-number generator so that the final output is identical each time the script is run. `BURN` specifies the number of iterations that are run prior to saving the first imputed data set. As described above, `BURN` is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.
 
-#######START HERE
-
-Set `SEED` so that output is identical on each run. `BURN` runs 1000 iterations before saving the first imputed data set, to allow parameter estimates to stabilize. Number of `BURN` iterations needs to be recalibrated for each new data set by examining psr, plots. `ITERATIONS` controls how many iterations are run after completing burn-in, set this to at least 1000 to ensure stable parameter estimates. 
+`ITERATIONS` controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, `ITERATIONS` is set to 1. If the analyses required regression parameters as explicit output, we would would set `ITERATIONS` to at least 1000 to ensure stable estimates.
 ```{r BLIMP, echo=9:11, eval=FALSE}
 ```
-`OPTIONS` requests parameter estimates for the analysis output. `CHAINS` is toggled off here, but it can be turned on for parallel (and potentially faster) processing. In this example, four chains would then be run, resulting in four imputed data sets. `SAVE: separate` indicates that imputations will be saved in separate files (this script is set up to yield only one imputed data set). The asterisk `*` is required so that BLIMP can distinguish multiple separate imputations with a numerical suffix.
-```{r BLIMP, echo=12:14, eval=FALSE}
+`OPTIONS` and `SAVE` are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, `SAVE` is toggled off, and `OPTIONS` is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, `OPTIONS` is toggled off, and `SAVE` is run to save the imputed data set. The `separate` argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file).
+```{r BLIMP, echo=12:13, eval=FALSE}
 ```
 
 <br>

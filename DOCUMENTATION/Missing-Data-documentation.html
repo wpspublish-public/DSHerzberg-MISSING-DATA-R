@@ -645,17 +645,17 @@ NOMINAL: scalenum;</code></pre>
 <pre class="r"><code>FIXED: scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10;
 CLUSTERID: id;</code></pre>
 <p><code>MISSING</code> identifies the missing data code (the code <code>999</code> was created in the R script). <code>MODEL</code> specifies the regression model that will be used for imputation. On this <code>MODEL</code> line, <code>response</code> is regressed on the dummy-coded item-scale assignment variables (created by listing <code>scalenum</code> on the <code>NOMINAL</code> command line) and the dummy-coded item variables (represented as columns in the input .csv).</p>
-<p>The expression <code>| scalenum</code> allows the model to estimate individual differences for each scale. This is a flexible model in which the only assumption is that within-scale factor loadings (thetas) are identical. Items within scales can have unique means, and thetas can vary across scales and between persons.</p>
+<p>The expression <code>| scalenum</code> allows the model to estimate individual differences for each subscale score. This is a flexible model in which the only assumption is that within-subscale factor loadings (thetas) are identical. Items within scales can have unique means, and thetas can vary across scales and between persons.</p>
 <pre class="r"><code>MISSING: 999;
 MODEL: response ~ scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10 | scalenum;</code></pre>
-<p>Set <code>SEED</code> so that output is identical on each run. <code>BURN</code> runs 1000 iterations before saving the first imputed data set, to allow parameter estimates to stabilize. Number of <code>BURN</code> iterations needs to be recalibrated for each new data set by examining psr, plots. <code>ITERATIONS</code> controls how many iterations are run after completing burn-in, set this to at least 1000 to ensure stable parameter estimates.</p>
+<p><code>SEED</code> sets BLIMP’s random-number generator so that the final output is identical each time the script is run. <code>BURN</code> specifies the number of iterations that are run prior to saving the first imputed data set. As described above, <code>BURN</code> is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.</p>
+<p><code>ITERATIONS</code> controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, <code>ITERATIONS</code> is set to 1. If the analyses required regression parameters as explicit output, we would would set <code>ITERATIONS</code> to at least 1000 to ensure stable estimates.</p>
 <pre class="r"><code>SEED: 90291;
 BURN: 2000; 
 ITERATIONS: 1;</code></pre>
-<p><code>OPTIONS</code> requests parameter estimates for the analysis output. <code>CHAINS</code> is toggled off here, but it can be turned on for parallel (and potentially faster) processing. In this example, four chains would then be run, resulting in four imputed data sets. <code>SAVE: separate</code> indicates that imputations will be saved in separate files (this script is set up to yield only one imputed data set). The asterisk <code>*</code> is required so that BLIMP can distinguish multiple separate imputations with a numerical suffix.</p>
+<p><code>OPTIONS</code> and <code>SAVE</code> are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, <code>SAVE</code> is toggled off, and <code>OPTIONS</code> is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, <code>OPTIONS</code> is toggled off, and <code>SAVE</code> is run to save the imputed data set. The <code>separate</code> argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file)</p>
 <pre class="r"><code>OPTIONS: psr;
-SAVE: separate = BLIMP-ouput.csv;
-NA</code></pre>
+SAVE: separate = BLIMP-ouput.csv;</code></pre>
 <p><br></p>
 </div>
 </div>
