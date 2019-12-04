@@ -1,0 +1,13 @@
+DATA: GOAL-data-i-num-BLIMP-input-ND.csv;
+VARIABLES: id itemnum response;
+ORDINAL: response;
+NOMINAL: itemnum;
+FIXED: itemnum;
+CLUSTERID: id;
+MISSING: 999;
+MODEL: response ~ itemnum;
+SEED: 90291;
+BURN: 2000;
+ITERATIONS: 1;
+#OPTIONS: psr;
+SAVE: separate = GOAL-NDimpute*.csv;
