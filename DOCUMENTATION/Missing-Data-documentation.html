@@ -196,6 +196,7 @@ $(document).ready(function () {
 <div id="overview" class="section level3">
 <h3>Overview</h3>
 <p>This documentation covers a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.</p>
+<p>[ADD BRIEF DISCUSSION OF MISSING DATA MODELS AND REFER TO ENDERS BOOK]</p>
 <p>The method can handle two general types of input data:</p>
 <ul>
 <li><strong>Multi-factor model</strong>: the test has a factor structure in which items are assigned to multiple subscales.</li>
@@ -534,6 +535,7 @@ NA_count</code></pre>
 <div id="prepare-data-for-blimp-single-factor-model" class="section level3">
 <h3>Prepare data for BLIMP: Single-factor model</h3>
 <p>The single-factor code is a simplified version of the multi-factor code; the comments and explanations above apply to this code as well.</p>
+<p>The BLIMP input file resulting from this code is a tall table with three columns: <code>id</code>, <code>item</code>, <code>response</code>. It is a multi-level table: all values of <code>item</code> are nested within each value of <code>id</code>. For single-factor data, BLIMP dummy codes the input automatically; thus, there is no need to create dummy-code columns in the R code.</p>
 <div id="valid-code-to-run-1" class="section level6">
 <h6>VALID CODE TO RUN</h6>
 <pre class="r"><code>suppressMessages(library(here))
@@ -562,10 +564,7 @@ input_gathered &lt;- input_orig %&gt;%
   arrange(id) %&gt;% 
   mutate(item = as.factor(str_sub(item, 2, 4)))
 
-dum &lt;- input_gathered %&gt;% 
-  dummy_cols(select_columns = 'item')
-
-write_csv(dum,
+write_csv(input_gathered,
           here(paste0(file_name, '-BLIMP-input.csv')),
           col_names = F
 )</code></pre>
