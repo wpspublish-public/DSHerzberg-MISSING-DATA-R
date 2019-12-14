@@ -1,7 +1,6 @@
 # required packages
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
-suppressMessages(library(fastDummies))
 
 # input parameters. Input file is .csv, with person ID column on far-left, and
 # remaining columns hold items, numbered in i001, i002, i003 etc. format.
