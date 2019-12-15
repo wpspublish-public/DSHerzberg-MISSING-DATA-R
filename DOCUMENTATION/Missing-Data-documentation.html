@@ -195,14 +195,14 @@ $(document).ready(function () {
 
 <div id="overview" class="section level3">
 <h3>Overview</h3>
-<p>This documentation covers a method in which input data are prepped in R and then run through BLIMP, which estimates a model and generates an output data set in which all missing cells are replaced with imputed values.</p>
-<p>This method assumes that data are missing from the input file due to the missing at random (MAR) mechanism. A discussion of missing data theory is beyond the scope of this document, and such knowledge is not needed to operate the code documented herein. Enders (2010) provides a thorough treament of missing data methods and theory.</p>
+<p>In this method, an input file with missing data is prepped in R and then run through BLIMP, which estimates a regression model and generates an output data set in which all missing cells are replaced with imputed values.</p>
+<p>This procedure assumes that data are missing from the input file due to the missing at random (MAR) mechanism. A discussion of missing data theory is beyond the scope of this document, and such knowledge is not needed to use the method described here. Enders (2010) provides a thorough treament of missing data methods and theory.</p>
 <pre><code>Enders, C. K. (2010). Applied Missing Data Analysis. New York: Guilford. </code></pre>
 <p>The code assumes a typical RStudio project folder hierarchy, with <code>INPUT-FILES</code> and <code>OUTPUT-FILES</code> folders at the first level.</p>
 </div>
 <div id="prepare-data-for-blimp" class="section level3">
 <h3>Prepare data for BLIMP</h3>
-<p>Input data should formatted with cases in rows and items in columns with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the <code>i001</code> consecutive nomenclature.</p>
+<p>Input data should formatted with cases in rows and test items in columns, with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the <code>i001</code> consecutive nomenclature.</p>
 <p>Once data are in this format, run the next block of code to restructure the input for BLIMP.</p>
 <p>Here and throughout, certain token markers are employed to designate user-input values that vary by project:</p>
 <ul>
@@ -251,7 +251,7 @@ write_csv(input_gathered,
 <li><code>id</code>: name of person ID column</li>
 <li><code>first_item</code>: name of column holding first item</li>
 <li><code>last_item</code>: name of column holding last item</li>
-<li><code>file_name</code>: <em>prefix</em> of input file name (e.g., stripped of <code>.csv</code>)</li>
+<li><code>file_name</code>: <em>prefix</em> of input file name (i.e., stripped of <code>.csv</code>)</li>
 </ul>
 <pre class="r"><code>id &lt;- c('{TOKEN}')
 first_item &lt;- c('{TOKEN}')
@@ -263,12 +263,13 @@ file_name &lt;- c('{FILE-NAME}')</code></pre>
 ))) %&gt;% 
   select(id, first_item:last_item)
 names_input_orig &lt;- names(input_orig)</code></pre>
-<p>Count the <code>NA</code> cells across all items and persons in the input table. <code>is.na()</code> returns <code>TRUE</code> for each table cell containing <code>NA</code>. Because logical <code>TRUE</code> overlays a numerical code of <code>1</code>, <code>sum()</code> returns the count of <code>NA</code> across all cells. <code>NA_count</code> prints this count to the console.</p>
+<p>When data are read into R, missing values are coded <code>NA</code> (not available). The next snippet counts the <code>NA</code> cells across all items and persons in the input table. <code>is.na()</code> returns <code>TRUE</code> for each table cell containing <code>NA</code>. Because logical <code>TRUE</code> is equivalent to a numerical code of <code>1</code>, <code>sum()</code> returns the count of <code>NA</code> across all cells. <code>NA_count</code> prints this count to the console.</p>
 <pre class="r"><code>NA_count &lt;- sum(is.na(input_orig))
 NA_count</code></pre>
 <p>Recode the <code>NA</code> in the input to <code>999</code>, a missing value code typically used by BLIMP. Assign the value <code>999</code> to the subset of cells within <code>input_orig</code> for which the predicate (logical) expression <code>is.na(input_orig)</code> returns <code>TRUE</code>.</p>
 <pre class="r"><code>input_orig[is.na(input_orig)] &lt;- 999</code></pre>
-<p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. Thus each person has the same number of rows as the number of items. Within each set of person-rows, the left-right sequence of columns (item names) in the input file is represented in the <code>item</code> column, going down the rows. In the <code>response</code> column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.</p>
+<p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. In the multi-level structure, each person has the same number of rows as the number of items in the input file.</p>
+<p>Within the set of rows that share an identical value for <code>id</code>, the left-right sequence of columns (item names) in the input file is represented in the <code>item</code> column, going down the rows. In the <code>response</code> column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.</p>
 <p><code>tidyr::gather()</code> transforms the table. In this call of <code>gather()</code>, <code>'item'</code> and <code>'response'</code> name the key and value columns, respectively. Recall that <code>input_orig</code> contains only the <code>id</code> and the <code>item</code> columns. Including <code>-id</code> in the <code>gather()</code>call drops this column from inclusion in the key-value reformatting. By excluding it in this way, <code>id</code> appears in the left-most position in the transformed table, and is “stretched” down the table, creating new duplicate rows for each value of <code>id</code>, such that there are the same number of rows for each value of <code>id</code> as the number of <code>item</code> columns in the input file. In the transformed table, the <code>item</code> column contains the <code>item</code> names from input file, repeated anew for (nested within) each successive set of <code>id</code> rows. The <code>response</code> column contains the item responses for each particular pairing of <code>id</code> and <code>item</code> values.</p>
 <p>Here are examples of the table structure before and after this transformation, for three cases of a four-item test:</p>
 </div>
@@ -388,7 +389,7 @@ NA_count</code></pre>
 <pre class="r"><code>  group_by(id) %&gt;% 
   arrange(id) %&gt;% 
   mutate(item = as.factor(str_sub(item, 2, 4)))</code></pre>
-<p>Write the input file for BLIMP, stripping the column names <code>col_names = F</code> as required. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder (if it is not, a file path must be specified on the BLIMP <code>DATA</code> command).</p>
+<p>Write the input file for BLIMP, stripping the column names <code>col_names = F</code> as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder (if it is not, a file path must be specified on the BLIMP <code>DATA</code> command).</p>
 <pre class="r"><code>write_csv(input_gathered,
           here(paste0(file_name, '-BLIMP-input.csv')),
           col_names = F
@@ -398,20 +399,20 @@ NA_count</code></pre>
 </div>
 <div id="run-blimp-script-on-prepped-data" class="section level3">
 <h3>Run BLIMP script on prepped data</h3>
-<p>After processing in R, input data has the following structure:</p>
+<p>After processing in R, the BLIMP input file has the following structure:</p>
 <ul>
 <li>Three columns: Person ID, item number, item response</li>
 <li>The structure is multi-level, in which item-response pairs are nested within each value of Person ID</li>
 <li>No column (variable) names</li>
 </ul>
-<p>In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of multiple regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, evaluates indices of fit, and adjusts parameters accordingly. Iteration continues for a defined interval. The final regression equations are then used to predict missing values.</p>
+<p>In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of multiple regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, evaluates indices of fit, and adjusts parameters accordingly. Iteration continues for a defined interval. The final regression equations are then used to impute missing values.</p>
 <p>The model estimation process must include a burn-in phase: a series of iterations that allow the regression parameters to converge (stabilize). The number of iterations required for burn-in varies by data set and is initially unknown. BLIMP supplies a metric for determining convergence: potential scale reduction (PSR). An acceptable burn-in interval is defined as the minimum number of iterations required to yield a PSR value in the range of 1.05-1.10.</p>
 <p>The BLIMP imputation process consists of two steps:</p>
 <ol style="list-style-type: decimal">
 <li><p><strong>Diagnostic Run</strong>: Data are processed with an initial burn-in interval of 1000 iterations. The output table of PSR values is examined, and if PSR is not reduced to 1.05-1.10 by the last set of iterations, the data are re-run with a longer burn-in interval (e.g. 2000 iterations). This process continues until an acceptable number of burn-in iterations is determined.</p></li>
-<li><p><strong>Imputation Run</strong>: Data are processed using the burn-in interval determined in Step 1. Output is an imputed data set with all missing responses estimated.</p></li>
+<li><p><strong>Imputation Run</strong>: Data are processed using the burn-in interval determined in Step 1. The saved output data set has all missing responses replaced with imputed values.</p></li>
 </ol>
-<p>An identical BLIMP template can be used for Steps 1 and 2. This template consists of the following commands (some include values and arguments that remain constant for all input data sets):</p>
+<p>An identical BLIMP template script can be used for Steps 1 and 2. This template consists of the following commands (some include values and arguments that remain constant for all input data sets):</p>
 <pre class="r"><code>DATA: {FILE-NAME}.csv
 VARIABLES: {TOKEN}
 ORDINAL: {TOKEN}
@@ -426,77 +427,23 @@ ITERATIONS:  1;
 OPTIONS: psr;
 SAVE: separate = {FILE-NAME}.csv;</code></pre>
 <p>Steps 1 and 2 are differentiated by activation/deactivation of the <code>OPTIONS</code> and <code>SAVE</code> lines (commands can be toggled off by beginning the command line with <code>#</code>).</p>
-<div id="step-1" class="section level6">
-<h6>Step 1</h6>
+<div id="step-1-diagnostic-run" class="section level6">
+<h6>Step 1: Diagnostic Run</h6>
 <p><code>OPTIONS</code> is activated to generate the PSR table. <code>SAVE</code> is deactivated because no imputed data set is needed for this step.</p>
 <pre class="r"><code>OPTIONS: psr;
 # SAVE: separate = {FILE-NAME}.csv;</code></pre>
 </div>
-<div id="step-2" class="section level6">
-<h6>Step 2</h6>
-<p><code>OPTIONS</code> is deactivated because the burn-in interval has been determined by Step 1, so there is no need to examine the PSR table. <code>SAVE</code> is activated in order to generated an imputed data set with missing values estimated.</p>
+<div id="step-2-imputation-run" class="section level6">
+<h6>Step 2: Imputation Run</h6>
+<p><code>OPTIONS</code> is deactivated because the burn-in interval has been determined by Step 1, so there is no need to view the PSR table. <code>SAVE</code> is activated in order to generated an imputed data set with missing values estimated.</p>
 <pre class="r"><code># OPTIONS: psr;
 SAVE: separate = {FILE-NAME}.csv;</code></pre>
-<p>Here is an example script for a multi-factor test with 114 items and eight subscales. The example has a typical set of token substitutions. The file names are generic - any suitable names can be substituted.</p>
+<p>Below is an example BLIMP script based on this template. The example has a typical set of token substitutions. The file names are generic - any suitable names can be substituted.</p>
 </div>
 <div id="this-code-can-be-run-in-blimp-studio" class="section level6">
 <h6>THIS CODE CAN BE RUN IN BLIMP STUDIO</h6>
-<pre class="r"><code>DATA: BLIMP-MF-input.csv;
-VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4d23 s5d1-s5d8 s6d1-s6d14 s7d1-s7d16 s8d1-s8d11;
-ORDINAL: response;
-NOMINAL: scalenum;
-FIXED: scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10;
-CLUSTERID: id;
-MISSING: 999;
-MODEL: response ~ scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10 | scalenum;
-SEED: 90291;
-BURN: 2000; 
-ITERATIONS: 1;
-OPTIONS: psr;
-SAVE: separate = BLIMP-MF-output*.csv;</code></pre>
-<p><br></p>
-</div>
-<div id="commented-snippets-1" class="section level6">
-<h6>COMMENTED SNIPPETS</h6>
-<p>In order to run as written, the <code>DATA</code> command must name a file located in the same folder/directory as the BLIMP script. If the input file is located elsewhere, you would need to specify a file path on <code>DATA</code>. Because the BLIMP input file has no column names, the <code>VARIABLES</code> command is used to name the columns. The first four names (<code>id</code>, <code>itemnum</code>, <code>response</code>, <code>scalenum</code>) are applied, respectively, to the four left-most columns on the input file: person ID, item number, item response, and item-scale assignment. The names to the right of <code>scalenum</code> are applied to the dummy code columns (d) for each of the eight scales (s). Thus, for example, <code>s2d16</code> names the dummy code column for the 16th item of the second scale. The expression <code>s1d1-s1d14</code>, for example, is expanded by BLIMP to yield 14 numerically sequenced names (i.e., <code>s1d1</code>, <code>s1d2</code>, <code>s1d3</code>, etc.). The number of names on the <code>VARIABLES</code> line must be identical to the number of columns in the input file.</p>
-<pre class="r"><code>DATA: BLIMP-MF-input.csv;
-VARIABLES: id itemnum response scalenum s1d1-s1d14 s2d1-s2d16 s3d1-s3d12 s4d1-s4d23 s5d1-s5d8 s6d1-s6d14 s7d1-s7d16 s8d1-s8d11;</code></pre>
-<p><code>ORDINAL</code> and <code>NOMINAL</code> are used to designate categorical variables. In the input data file, <code>response</code> refers to a 1-2-3-4 item response format; i.e., ordered categories representing increasing frequency of a behavior. On the <code>NOMINAL</code> line, <code>scalenum</code> represents a non-ordered categorical variable. Variables on the <code>NOMINAL</code> line are automatically recoded into dummy codes at imputation.</p>
-<pre class="r"><code>ORDINAL: response;
-NOMINAL: scalenum;</code></pre>
-<p><code>FIXED</code> is used to designate variables that will not have their means and variances estimated during computation. Fixing variables in this way increases computational efficiency. In this example, the means and variances of the item-scale assigment variable and the dummy code columns are not of substantive interest; thus, there is no reason to estimate these parameters.</p>
-<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, values of <code>itemnum</code> are nested within each value of <code>id</code>.</p>
-<pre class="r"><code>FIXED: scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10;
-CLUSTERID: id;</code></pre>
-<p><code>MISSING</code> identifies the missing data code (<code>999</code> was coded in the input file by the R script). <code>MODEL</code> specifies the regression model that will be used for imputation. On this <code>MODEL</code> line, <code>response</code> is regressed on the dummy-coded item-scale assignment variables (created by listing <code>scalenum</code> on the <code>NOMINAL</code> command line) and the dummy-coded item variables (represented as columns in the input .csv).</p>
-<p>The expression <code>| scalenum</code> allows the model to estimate individual differences for each subscale score. This is a flexible model in which the only assumption is that within-subscale factor loadings (thetas) are identical. Items within scales can have unique means, and thetas can vary across scales and between persons.</p>
-<pre class="r"><code>MISSING: 999;
-MODEL: response ~ scalenum s1d1-s1d13 s2d1-s2d15 s3d1-s3d11 s4d1-s4d22 s5d1-s5d7 s6d1-s6d13 s7d1-s7d15 s8d1-s8d10 | scalenum;</code></pre>
-<p><code>SEED</code> sets BLIMP_MF’s random-number generator so that the final output is identical each time the script is run. <code>BURN</code> specifies the number of iterations that are run prior to saving the first imputed data set. As described above, <code>BURN</code> is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.</p>
-<p><code>ITERATIONS</code> controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, <code>ITERATIONS</code> is set to 1. If the analyses required regression parameters as explicit output, we would would set <code>ITERATIONS</code> to at least 1000 to ensure stable estimates.</p>
-<pre class="r"><code>SEED: 90291;
-BURN: 2000; 
-ITERATIONS: 1;</code></pre>
-<p><code>OPTIONS</code> and <code>SAVE</code> are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, <code>SAVE</code> is toggled off, and <code>OPTIONS</code> is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, <code>OPTIONS</code> is toggled off, and <code>SAVE</code> is run to save the imputed data set. The <code>separate</code> argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file). The file name on <code>SAVE</code> requires an <code>*</code>, which allows BLIMP to appended numerical suffixes on multiple imputed data files.</p>
-<pre class="r"><code>OPTIONS: psr;
-SAVE: separate = BLIMP-MF-output*.csv;</code></pre>
-<p><br></p>
-</div>
-<div id="single-factor-input-data" class="section level5">
-<h5>SINGLE-FACTOR INPUT DATA</h5>
-<p>After processing in R, single-factor input data has the following structure:</p>
-<ul>
-<li>Left-most three columns are Person ID, item number, item response</li>
-<li>All columns to the right of these three are dummy-code columns, one for each item, with each item coded <code>1</code> in any row where that item appears, and <code>0</code> in all other rows</li>
-<li>The structure is multi-level, in which item-response pairs are nested within each value of Person ID</li>
-<li>No column (variable) names</li>
-</ul>
-<p>Here is an example script for a single-factor test with 132 items. The example has a typical set of token substitutions. The file names are generic - any suitable names can be substituted.</p>
-<p>This script is a simplified version of the multi-factor script described previously. Only lines that differ from the multi-factor script will be commented below. Otherwise, comments and documentation from the multi-factor script apply here as well.</p>
-<div id="this-code-can-be-run-in-blimp-studio-1" class="section level6">
-<h6>THIS CODE CAN BE RUN IN BLIMP STUDIO</h6>
-<pre class="r"><code>DATA: BLIMP-SF-input.csv;
-VARIABLES: id itemnum response d1-d132;
+<pre class="r"><code>DATA: BLIMP-input.csv;
+VARIABLES: id itemnum response;
 ORDINAL: response;
 NOMINAL: itemnum;
 FIXED: itemnum;
@@ -507,15 +454,32 @@ SEED: 90291;
 BURN: 2000; 
 ITERATIONS: 1;
 OPTIONS: psr;
-SAVE: separate = BLIMP-SF-output*.csv;</code></pre>
-<p><br></p>
+SAVE: separate = BLIMP-output*.csv;</code></pre>
 </div>
-<div id="commented-snippets-2" class="section level6">
+<div id="commented-snippets-1" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>Because the BLIMP input file has no column names, the <code>VARIABLES</code> command is used to name the columns. The first three names (<code>id</code>, <code>itemnum</code>, <code>response</code>) are applied, respectively, to the three left-most columns on the input file: person ID, item number, item response. The names to the right of <code>response</code> are applied to the dummy code columns (d) for each of the 132 items. Thus, for example, <code>d16</code> names the dummy code column for the 16th item. The expression <code>d1-d132</code> is expanded by BLIMP to yield 132 numerically sequenced names (i.e., <code>d1</code>, <code>d2</code>, <code>d3</code>, etc.). The number of names on the <code>VARIABLES</code> line must be identical to the number of columns in the input file.</p>
-<pre class="r"><code>VARIABLES: id itemnum response d1-d132;</code></pre>
+<p>In order to run as written, the <code>DATA</code> command must name a file located in the same folder/directory as the BLIMP script. If the input file is located elsewhere, a file path must be specified on <code>DATA</code>. Because the input date file has no column names, the <code>VARIABLES</code> command is used to name the three columns in the input file: <code>id</code>, <code>itemnum</code>, <code>response</code>. The number of names on the <code>VARIABLES</code> line must be identical to the number of columns in the input file.</p>
+<pre class="r"><code>DATA: BLIMP-input.csv;
+VARIABLES: id itemnum response;</code></pre>
+<p><code>ORDINAL</code> and <code>NOMINAL</code> are used to designate ordered and non-ordered categorical variables. Here, <code>response</code> is listed on the <code>ORDINAL</code> line. In the input data file, <code>response</code> refers to a 1-2-3-4 item response format; i.e., ordered categories representing increasing frequency of a behavior. On the <code>NOMINAL</code> line, <code>scalenum</code> represents a non-ordered categorical variable. Variables on the <code>NOMINAL</code> line are automatically recoded into dummy codes at imputation.</p>
+<pre class="r"><code>ORDINAL: response;
+NOMINAL: itemnum;</code></pre>
+<p><code>FIXED</code> is used to designate variables that will not have their means and variances estimated during computation. Fixing variables in this way increases computational efficiency. In this example, the means and variances of the nominal item number variable are not of substantive interest; thus, there is no reason to estimate these parameters.</p>
+<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, key-value pairs of <code>itemnum</code> and <code>response</code> are nested within each value of <code>id</code>.</p>
+<pre class="r"><code>FIXED: itemnum;
+CLUSTERID: id;</code></pre>
+<p><code>MISSING</code> identifies the missing data code (<code>999</code> was coded in the input file by the R script). <code>MODEL</code> specifies the regression model that will be used for imputation. On this <code>MODEL</code> line, <code>response</code> is regressed on the dummy-coded item-number variable (dummy codes were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
+<pre class="r"><code>MISSING: 999;
+MODEL: response ~ itemnum;</code></pre>
+<p><code>SEED</code> sets BLIMP’s random-number generator so that the final output is identical each time the script is run. <code>BURN</code> specifies the number of iterations that are run prior to saving the first imputed data set. As described above, <code>BURN</code> is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.</p>
+<p><code>ITERATIONS</code> controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, <code>ITERATIONS</code> is set to 1. If the project required regression parameters as explicit output, <code>ITERATIONS</code> would be set to at least 1000 to ensure stable estimates.</p>
+<pre class="r"><code>SEED: 90291;
+BURN: 2000; 
+ITERATIONS: 1;</code></pre>
+<p><code>OPTIONS</code> and <code>SAVE</code> are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, <code>SAVE</code> is toggled off, and <code>OPTIONS</code> is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, <code>OPTIONS</code> is toggled off, and <code>SAVE</code> is run to save the imputed data set. The <code>separate</code> argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file). The file name on <code>SAVE</code> requires an <code>*</code>, which allows BLIMP to append numerical suffixes on multiple imputed data files. (<code>*</code> is always used, even in this example, which yields only a single imputed data set)</p>
+<pre class="r"><code>OPTIONS: psr;
+SAVE: separate = BLIMP-output*.csv;</code></pre>
 <p><br></p>
-</div>
 </div>
 </div>
 <div id="reformat-imputed-data-set-for-downstream-analysis" class="section level3">
@@ -525,7 +489,7 @@ SAVE: separate = BLIMP-SF-output*.csv;</code></pre>
 <h6>VALID CODE TO RUN</h6>
 <pre class="r"><code>temp1 &lt;- suppressMessages(
   read_csv(
-    (here('model4imp1.csv')), col_names = F)[1:3])
+    (here('BLIMP-output1.csv')), col_names = F))
 names(temp1) &lt;- c('id', 'item', 'response')
 temp2 &lt;- temp1 %&gt;% 
   spread(item, response) 
@@ -543,12 +507,12 @@ write_csv(temp2, here(
 ))</code></pre>
 <p><br></p>
 </div>
-<div id="commented-snippets-3" class="section level6">
+<div id="commented-snippets-2" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>The imputed data file <code>model4imp1.csv</code> has no column names, so <code>read_csv</code> must be called with the <code>col_names = F</code> argument (otherwise, the first row of data will be used as column names). Subsetting <code>[1:3]</code> is used to read in only the three left-most columns. Column names are applied from a character vector using <code>names()</code>.</p>
+<p>The imputed data file <code>BLIMP-output1.csv</code> has no column names, so <code>read_csv</code> must be called with the <code>col_names = F</code> argument (otherwise, the first row of data will be used as column names). Column names are applied from a character vector using <code>base::names()</code>.</p>
 <pre class="r"><code>temp1 &lt;- suppressMessages(
   read_csv(
-    (here('model4imp1.csv')), col_names = F)[1:3])
+    (here('BLIMP-output1.csv')), col_names = F))
 names(temp1) &lt;- c('id', 'item', 'response')</code></pre>
 <p>The data object <code>temp1</code> is a tall table in which <code>item</code>s and their associated <code>response</code>s are nested within each person <code>id</code> number, as in the following example:</p>
 </div>
@@ -625,7 +589,7 @@ names(temp1) &lt;- c('id', 'item', 'response')</code></pre>
 </tr>
 </tbody>
 </table>
-<p>The application of <code>tidyr::spread()</code> collapes the muliple rows of <code>id</code> into a single row. The call identifies the key-value pair: <code>item</code> (key) and <code>response</code> (value). The values of <code>item</code> are used to name new columns going wide across the table. The values of <code>response</code> become the cell entries at the intersection of each row <code>id</code> and column <code>item</code>. The table appears as in the example below:</p>
+<p>The application of <code>tidyr::spread()</code> collapses the muliple rows of <code>id</code> into a single row. The call identifies the key-value pair: <code>item</code> (key) and <code>response</code> (value). The values of <code>item</code> are used to name new columns going left-to-right across the table. The values of <code>response</code> become the cell entries at the intersection of each <code>id</code> row and <code>item</code> column. The transformed table appears as in the example below:</p>
 </div>
 <div id="after-1" class="section level6">
 <h6>After</h6>
@@ -664,7 +628,7 @@ names(temp1) &lt;- c('id', 'item', 'response')</code></pre>
 </tbody>
 </table>
 <p>Thus, <code>spread()</code> restores the imputed data set to the same format as original input (which contained missing data). <code>names</code> is used to reapply the column names of the original input.</p>
-<p>The remainder of this code chunk verifies that the count of <code>NA</code> (now coded as <code>999</code>) is 0, and writes the final output to .csv.</p>
+<p>The remainder of this code chunk verifies that the count of <code>NA</code> (now coded as <code>999</code>) is 0, and writes the final output to .csv. The output has no missing data and is thus ready for downstream analysis.</p>
 <pre class="r"><code>temp2 &lt;- temp1 %&gt;% 
   spread(item, response) 
 names(temp2) &lt;- names_input_orig
@@ -679,87 +643,6 @@ write_csv(temp2, here(
     '-noMiss.csv'
   )
 ))</code></pre>
-<p><br></p>
-</div>
-</div>
-<div id="annotated-blimp-output" class="section level3">
-<h3>Annotated BLIMP output</h3>
-<p>For all output tables, the entries in the mean/StdDev columns can be regarded as Bayesian point estimtes and standard errors. The model allows each person to have a latent scale (subscale) score on each subscale/factor/dimension. These latent scores are approximately scaled as z-scores.</p>
-<div id="variances-section" class="section level4">
-<h4>Variances Section</h4>
-<ul>
-<li>Lines that begin with L2 and have only a single quantity in the <code>Variances</code> column (e.g., <code>L2 Intercept (i)</code>, <code>L2 scalenum#2</code>) are <em>variances</em> of a particular scale score. <code>L2 Intercept (i)</code> is the variance of scale #1.</li>
-<li>Lines that have two elements (e.g., <code>L2 scalenum#3, scalenum#2</code>) are the <em>covariances</em> between two scale scores.</li>
-</ul>
-<pre class="r"><code>ANALYSIS MODEL ESTIMATES:
-
-
-Missing outcome: response   
-
-                                --------------------------------------------------------
-Parameters                      |   Mean   |  Median  |  StdDev  |Lower 2.5 |Upper 97.5|
-                                --------------------------------------------------------
-Variances:                      |          |          |          |          |          |
-  L2 Intercept (i)              |     0.729|     0.707|     0.062|     0.675|     0.860|
-  L2 (i), scalenum#2            |    -0.365|    -0.344|     0.059|    -0.474|    -0.295|
-  L2 scalenum#2                 |     0.678|     0.685|     0.062|     0.602|     0.794|
-  L2 (i), scalenum#3            |    -0.400|    -0.378|     0.064|    -0.523|    -0.333|
-  L2 scalenum#3, scalenum#2     |     0.670|     0.654|     0.069|     0.595|     0.820|
-  L2 scalenum#3                 |     0.836|     0.803|     0.088|     0.759|     1.039|
-  L2 (i), scalenum#4            |    -0.371|    -0.332|     0.066|    -0.502|    -0.307|
-  L2 scalenum#4, scalenum#2     |     0.538|     0.530|     0.059|     0.469|     0.667|
-  L2 scalenum#4, scalenum#3     |     0.647|     0.615|     0.073|     0.592|     0.827|
-  L2 scalenum#4                 |     0.704|     0.690|     0.061|     0.642|     0.840|
-  
-  [OUTPUT TRUNCATED FOR BREVITY]
-  
-  Residual Var.                 |     1.000|     1.000|     0.000|     1.000|     1.000|
-                                |----------|----------|----------|----------|----------|</code></pre>
-</div>
-<div id="coefficients-section" class="section level4">
-<h4>Coefficients Section</h4>
-<ul>
-<li><code>Intercept</code>: grand mean of latent scale #1.</li>
-<li><code>scalenum</code>: dummy codes reflecting mean differences of the listed scale from scale #1 (expressed roughly on a z-score scale).
-<ul>
-<li>In this example, all scales have lower means than scale #1, except for scale #3. Confidence intervals in the right-most columns tell whether a scale’s mean differs significantly from the mean of scale #1.</li>
-</ul></li>
-<li><code>s1d1</code> et al.: dummy codes that capture differences among items with respect to difficulty.
-<ul>
-<li>Coefficents give mean difference of each item relative to last item on that scale.</li>
-</ul></li>
-</ul>
-<pre class="r"><code>Coefficients:                   |          |          |          |          |          |
-  Intercept                     |     0.136|     0.119|     0.053|     0.078|     0.231|
-  scalenum#2                    |    -0.507|    -0.498|     0.056|    -0.623|    -0.421|
-  scalenum#3                    |     0.295|     0.321|     0.077|     0.152|     0.374|
-  scalenum#4                    |    -1.085|    -1.057|     0.083|    -1.255|    -1.003|
-  scalenum#5                    |    -1.979|    -1.968|     0.099|    -2.131|    -1.864|
-  scalenum#6                    |    -1.784|    -1.798|     0.056|    -1.854|    -1.707|
-  scalenum#7                    |    -1.163|    -1.162|     0.047|    -1.236|    -1.077|
-  scalenum#8                    |    -2.004|    -1.987|     0.082|    -2.169|    -1.910|
-  s1d1                          |     0.003|     0.016|     0.079|    -0.122|     0.098|
-  s1d2                          |     0.046|     0.062|     0.069|    -0.055|     0.130|
-  s1d3                          |     0.307|     0.305|     0.057|     0.203|     0.409|
-
-      [OUTPUT TRUNCATED FOR BREVITY]
-
-  s8d7                          |     0.660|     0.637|     0.073|     0.536|     0.765|
-  s8d8                          |     0.775|     0.761|     0.045|     0.704|     0.838|
-  s8d9                          |     1.289|     1.282|     0.062|     1.190|     1.391|
-  s8d10                         |     1.302|     1.322|     0.053|     1.183|     1.356|
-                                |----------|----------|----------|----------|----------|</code></pre>
-</div>
-<div id="threshold-section" class="section level4">
-<h4>Threshold Section</h4>
-<ul>
-<li><code>Tau</code>: set of z-score cutpoints that slice underlying latent normal scores into four discrete response options (for four-point item rating scale). This is not a direct analog to polytomous response thresholds in IRT, because the latter are available on an item-by-item basis, whereas these Tau paramaters represent a shared aspect of all items in the BLIMP analysis.</li>
-</ul>
-<pre class="r"><code>Thresholds:                     |          |          |          |          |          |
-  Tau 1                         |     0.000|     0.000|     0.000|     0.000|     0.000|
-  Tau 2                         |     1.598|     1.598|     0.005|     1.590|     1.606|
-  Tau 3                         |     2.555|     2.556|     0.014|     2.532|     2.572|
-                                |----------|----------|----------|----------|----------|</code></pre>
 </div>
 </div>
 

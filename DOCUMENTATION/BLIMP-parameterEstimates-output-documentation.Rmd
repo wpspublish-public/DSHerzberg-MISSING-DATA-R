@@ -1,0 +1,88 @@
+---
+title: "BLIMP output: parameter estimates"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Annotated BLIMP output
+For all output tables, the entries in the mean/StdDev columns can be regarded as Bayesian point estimates and standard errors. The model allows each person to have a latent scale (subscale) score on each subscale/factor/dimension. These latent scores are approximately scaled as z-scores.
+
+#### Variances Section
+
+* Lines that begin with L2 and have only a single quantity in the `Variances` column (e.g., `L2 Intercept (i)`, `L2 scalenum#2`) are _variances_ of a particular scale score. `L2 Intercept (i)` is the variance of scale #1. 
+* Lines that have two elements (e.g., `L2 scalenum#3, scalenum#2`) are the _covariances_ between two scale scores.
+
+```{r BLIMP_output_var, eval=FALSE}
+ANALYSIS MODEL ESTIMATES:
+
+
+Missing outcome: response   
+
+                                --------------------------------------------------------
+Parameters                      |   Mean   |  Median  |  StdDev  |Lower 2.5 |Upper 97.5|
+                                --------------------------------------------------------
+Variances:                      |          |          |          |          |          |
+  L2 Intercept (i)              |     0.729|     0.707|     0.062|     0.675|     0.860|
+  L2 (i), scalenum#2            |    -0.365|    -0.344|     0.059|    -0.474|    -0.295|
+  L2 scalenum#2                 |     0.678|     0.685|     0.062|     0.602|     0.794|
+  L2 (i), scalenum#3            |    -0.400|    -0.378|     0.064|    -0.523|    -0.333|
+  L2 scalenum#3, scalenum#2     |     0.670|     0.654|     0.069|     0.595|     0.820|
+  L2 scalenum#3                 |     0.836|     0.803|     0.088|     0.759|     1.039|
+  L2 (i), scalenum#4            |    -0.371|    -0.332|     0.066|    -0.502|    -0.307|
+  L2 scalenum#4, scalenum#2     |     0.538|     0.530|     0.059|     0.469|     0.667|
+  L2 scalenum#4, scalenum#3     |     0.647|     0.615|     0.073|     0.592|     0.827|
+  L2 scalenum#4                 |     0.704|     0.690|     0.061|     0.642|     0.840|
+  
+  [OUTPUT TRUNCATED FOR BREVITY]
+  
+  Residual Var.                 |     1.000|     1.000|     0.000|     1.000|     1.000|
+                                |----------|----------|----------|----------|----------|
+```
+
+#### Coefficients Section
+
+* `Intercept`: grand mean of latent scale #1.
+* `scalenum`: dummy codes reflecting mean differences of the listed scale from scale #1 (expressed roughly on a z-score scale). 
+    + In this example, all scales have lower means than scale #1, except for scale #3. Confidence intervals in the right-most columns tell whether a scale's mean differs significantly from the mean of scale #1.
+* `s1d1` et al.: dummy codes that capture differences among items with respect to difficulty.
+    + Coefficents give mean difference of each item relative to last item on that scale.
+
+```{r BLIMP_output_coeff, eval=FALSE}
+Coefficients:                   |          |          |          |          |          |
+  Intercept                     |     0.136|     0.119|     0.053|     0.078|     0.231|
+  scalenum#2                    |    -0.507|    -0.498|     0.056|    -0.623|    -0.421|
+  scalenum#3                    |     0.295|     0.321|     0.077|     0.152|     0.374|
+  scalenum#4                    |    -1.085|    -1.057|     0.083|    -1.255|    -1.003|
+  scalenum#5                    |    -1.979|    -1.968|     0.099|    -2.131|    -1.864|
+  scalenum#6                    |    -1.784|    -1.798|     0.056|    -1.854|    -1.707|
+  scalenum#7                    |    -1.163|    -1.162|     0.047|    -1.236|    -1.077|
+  scalenum#8                    |    -2.004|    -1.987|     0.082|    -2.169|    -1.910|
+  s1d1                          |     0.003|     0.016|     0.079|    -0.122|     0.098|
+  s1d2                          |     0.046|     0.062|     0.069|    -0.055|     0.130|
+  s1d3                          |     0.307|     0.305|     0.057|     0.203|     0.409|
+
+      [OUTPUT TRUNCATED FOR BREVITY]
+
+  s8d7                          |     0.660|     0.637|     0.073|     0.536|     0.765|
+  s8d8                          |     0.775|     0.761|     0.045|     0.704|     0.838|
+  s8d9                          |     1.289|     1.282|     0.062|     1.190|     1.391|
+  s8d10                         |     1.302|     1.322|     0.053|     1.183|     1.356|
+                                |----------|----------|----------|----------|----------|
+```
+
+#### Threshold Section
+
+* `Tau`: set of z-score cutpoints that slice underlying latent normal scores into four discrete response options (for four-point item rating scale). This is not a direct analog to polytomous response thresholds in IRT, because the latter are available on an item-by-item basis, whereas these Tau paramaters represent a shared aspect of all items in the BLIMP analysis.
+
+```{r BLIMP_output_tau, eval=FALSE}
+Thresholds:                     |          |          |          |          |          |
+  Tau 1                         |     0.000|     0.000|     0.000|     0.000|     0.000|
+  Tau 2                         |     1.598|     1.598|     0.005|     1.590|     1.606|
+  Tau 3                         |     2.555|     2.556|     0.014|     2.532|     2.572|
+                                |----------|----------|----------|----------|----------|
+```
+
+
