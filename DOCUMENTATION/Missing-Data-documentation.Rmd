@@ -148,7 +148,7 @@ The BLIMP imputation process consists of two steps:
 
 An identical BLIMP template script can be used for Steps 1 and 2. This template consists of the following commands (some include values and arguments that remain constant for all input data sets):
 
-```{r BLIMP-multiFactor-template, eval=FALSE}
+```{r BLIMP-template, eval=FALSE}
 DATA: {FILE-NAME}.csv
 VARIABLES: {TOKEN}
 ORDINAL: {TOKEN}
@@ -161,7 +161,7 @@ SEED: 90291;
 BURN: {TOKEN}
 ITERATIONS:  1;
 OPTIONS: psr;
-SAVE: separate = {FILE-NAME}.csv;
+SAVE: separate = {FILE-NAME}*.csv;
 ```
 
 Steps 1 and 2 are differentiated by activation/deactivation of the `OPTIONS` and `SAVE` lines (commands can be toggled off by beginning the command line with `#`).
@@ -170,19 +170,19 @@ Steps 1 and 2 are differentiated by activation/deactivation of the `OPTIONS` and
 `OPTIONS` is activated to generate the PSR table. `SAVE` is deactivated because no imputed data set is needed for this step.
 ```{r BLIMP-multiFactor-template1, eval=FALSE}
 OPTIONS: psr;
-# SAVE: separate = {FILE-NAME}.csv;
+# SAVE: separate = {FILE-NAME}*.csv;
 ```
 ###### Step 2: Imputation Run
 `OPTIONS` is deactivated because the burn-in interval has been determined by Step 1, so there is no need to view the PSR table. `SAVE` is activated in order to generate an imputed data set with missing values estimated.
 ```{r BLIMP-multiFactor-template2, eval=FALSE}
 # OPTIONS: psr;
-SAVE: separate = {FILE-NAME}.csv;
+SAVE: separate = {FILE-NAME}*.csv;
 ```
 
 Below is an example BLIMP script based on this template. The example has a typical set of token substitutions. The file names are generic - any suitable names can be substituted.
 
 ###### THIS CODE CAN BE RUN IN BLIMP STUDIO
-```{r BLIMP_MF, eval=FALSE}
+```{r BLIMP_example, eval=FALSE}
 DATA: BLIMP-input.csv;
 VARIABLES: id itemnum response;
 ORDINAL: response;

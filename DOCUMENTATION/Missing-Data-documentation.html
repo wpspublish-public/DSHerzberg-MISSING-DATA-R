@@ -425,19 +425,19 @@ SEED: 90291;
 BURN: {TOKEN}
 ITERATIONS:  1;
 OPTIONS: psr;
-SAVE: separate = {FILE-NAME}.csv;</code></pre>
+SAVE: separate = {FILE-NAME}*.csv;</code></pre>
 <p>Steps 1 and 2 are differentiated by activation/deactivation of the <code>OPTIONS</code> and <code>SAVE</code> lines (commands can be toggled off by beginning the command line with <code>#</code>).</p>
 <div id="step-1-diagnostic-run" class="section level6">
 <h6>Step 1: Diagnostic Run</h6>
 <p><code>OPTIONS</code> is activated to generate the PSR table. <code>SAVE</code> is deactivated because no imputed data set is needed for this step.</p>
 <pre class="r"><code>OPTIONS: psr;
-# SAVE: separate = {FILE-NAME}.csv;</code></pre>
+# SAVE: separate = {FILE-NAME}*.csv;</code></pre>
 </div>
 <div id="step-2-imputation-run" class="section level6">
 <h6>Step 2: Imputation Run</h6>
 <p><code>OPTIONS</code> is deactivated because the burn-in interval has been determined by Step 1, so there is no need to view the PSR table. <code>SAVE</code> is activated in order to generate an imputed data set with missing values estimated.</p>
 <pre class="r"><code># OPTIONS: psr;
-SAVE: separate = {FILE-NAME}.csv;</code></pre>
+SAVE: separate = {FILE-NAME}*.csv;</code></pre>
 <p>Below is an example BLIMP script based on this template. The example has a typical set of token substitutions. The file names are generic - any suitable names can be substituted.</p>
 </div>
 <div id="this-code-can-be-run-in-blimp-studio" class="section level6">
@@ -459,26 +459,13 @@ SAVE: separate = BLIMP-output*.csv;</code></pre>
 <div id="commented-snippets-1" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
 <p>In order to run as written, the <code>DATA</code> command must name a file located in the same folder/directory as the BLIMP script. If the input file is located elsewhere, a file path must be specified on <code>DATA</code>. Because the input date file has no column names, the <code>VARIABLES</code> command is used to name the three columns in the input file: <code>id</code>, <code>itemnum</code>, <code>response</code>. The number of names on the <code>VARIABLES</code> line must be identical to the number of columns in the input file.</p>
-<pre class="r"><code>DATA: BLIMP-input.csv;
-VARIABLES: id itemnum response;</code></pre>
 <p><code>ORDINAL</code> and <code>NOMINAL</code> are used to designate ordered and non-ordered categorical variables. Here, <code>response</code> is listed on the <code>ORDINAL</code> line. In the input data file, <code>response</code> refers to a 1-2-3-4 item response format; i.e., ordered categories representing increasing frequency of a behavior. On the <code>NOMINAL</code> line, <code>itemnum</code> represents a non-ordered categorical variable. Variables on the <code>NOMINAL</code> line are automatically recoded into dummy codes at imputation.</p>
-<pre class="r"><code>ORDINAL: response;
-NOMINAL: itemnum;</code></pre>
 <p><code>FIXED</code> is used to designate variables that will not have their means and variances estimated during computation. Fixing variables in this way increases computational efficiency. In this example, the means and variances of the nominal item number variable are not of substantive interest; thus, there is no reason to estimate these parameters.</p>
 <p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, key-value pairs of <code>itemnum</code> and <code>response</code> are nested within each value of <code>id</code>.</p>
-<pre class="r"><code>FIXED: itemnum;
-CLUSTERID: id;</code></pre>
 <p><code>MISSING</code> identifies the missing data code (<code>999</code> was coded in the input file by the R script). <code>MODEL</code> specifies the regression model that will be used for imputation. On this <code>MODEL</code> line, <code>response</code> is regressed on the dummy-coded item-number variable (dummy codes were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
-<pre class="r"><code>MISSING: 999;
-MODEL: response ~ itemnum;</code></pre>
 <p><code>SEED</code> sets BLIMP’s random-number generator so that the final output is identical each time the script is run. <code>BURN</code> specifies the number of iterations that are run prior to saving the first imputed data set. As described above, <code>BURN</code> is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.</p>
 <p><code>ITERATIONS</code> controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, <code>ITERATIONS</code> is set to 1. If the project required regression parameters as explicit output, <code>ITERATIONS</code> would be set to at least 1000 to ensure stable estimates.</p>
-<pre class="r"><code>SEED: 90291;
-BURN: 2000; 
-ITERATIONS: 1;</code></pre>
 <p><code>OPTIONS</code> and <code>SAVE</code> are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, <code>SAVE</code> is toggled off, and <code>OPTIONS</code> is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, <code>OPTIONS</code> is toggled off, and <code>SAVE</code> is run to save the imputed data set. The <code>separate</code> argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file). The file name on <code>SAVE</code> requires an <code>*</code>, which allows BLIMP to append numerical suffixes on multiple imputed data files. (<code>*</code> is always used, even in this example, which yields only a single imputed data set)</p>
-<pre class="r"><code>OPTIONS: psr;
-SAVE: separate = BLIMP-output*.csv;</code></pre>
 <p><br></p>
 </div>
 </div>
