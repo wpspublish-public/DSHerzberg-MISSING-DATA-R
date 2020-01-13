@@ -87,7 +87,7 @@ Recall that the structure of the input file is a row for each case, and a column
 
 Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.
 
-`tidyr::gather()` transforms the table. In this call of `gather()`, `'item'` and `'response'` name the key and value columns, respectively. Recall that `input_orig` contains only the `id` and the `item` columns. Including `-id` in the `gather()`call drops this column from inclusion in the key-value reformatting. By excluding it in this way, `id` appears in the left-most position in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. In the transformed table, the `item` column contains the `item` names from input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
+`tidyr::gather()` transforms the table. In this call of `gather()`, `'item'` and `'response'` name the key and value columns, respectively. Recall that `input_orig` contains only the `id` and the `item` columns. Including `-id` in the `gather()`call drops this column from inclusion in the key-value reformatting. By excluding it in this way, `id` appears in the left-most position in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
 
 Here are examples of the table structure before and after this transformation, for three cases of a four-item test:
 
@@ -173,7 +173,7 @@ OPTIONS: psr;
 # SAVE: separate = {FILE-NAME}.csv;
 ```
 ###### Step 2: Imputation Run
-`OPTIONS` is deactivated because the burn-in interval has been determined by Step 1, so there is no need to view the PSR table. `SAVE` is activated in order to generated an imputed data set with missing values estimated.
+`OPTIONS` is deactivated because the burn-in interval has been determined by Step 1, so there is no need to view the PSR table. `SAVE` is activated in order to generate an imputed data set with missing values estimated.
 ```{r BLIMP-multiFactor-template2, eval=FALSE}
 # OPTIONS: psr;
 SAVE: separate = {FILE-NAME}.csv;
@@ -202,7 +202,7 @@ SAVE: separate = BLIMP-output*.csv;
 In order to run as written, the `DATA` command must name a file located in the same folder/directory as the BLIMP script. If the input file is located elsewhere, a file path must be specified on `DATA`. Because the input date file has no column names, the `VARIABLES` command is used to name the three columns in the input file: `id`, `itemnum`, `response`. The number of names on the `VARIABLES` line must be identical to the number of columns in the input file.
 ```{r BLIMP_MF, echo=1:2, eval=FALSE}
 ```
-`ORDINAL` and `NOMINAL` are used to designate ordered and non-ordered categorical variables. Here, `response` is listed on the `ORDINAL` line. In the input data file, `response` refers to a 1-2-3-4 item response format; i.e., ordered categories representing increasing frequency of a behavior. On the `NOMINAL` line, `scalenum` represents a non-ordered categorical variable. Variables on the `NOMINAL` line are automatically recoded into dummy codes at imputation.
+`ORDINAL` and `NOMINAL` are used to designate ordered and non-ordered categorical variables. Here, `response` is listed on the `ORDINAL` line. In the input data file, `response` refers to a 1-2-3-4 item response format; i.e., ordered categories representing increasing frequency of a behavior. On the `NOMINAL` line, `itemnum` represents a non-ordered categorical variable. Variables on the `NOMINAL` line are automatically recoded into dummy codes at imputation.
 ```{r BLIMP_MF, echo=3:4, eval=FALSE}
 ```
 `FIXED` is used to designate variables that will not have their means and variances estimated during computation. Fixing variables in this way increases computational efficiency. In this example, the means and variances of the nominal item number variable are not of substantive interest; thus, there is no reason to estimate these parameters. 
@@ -286,9 +286,9 @@ id            | i01           | i02           | i03           | i04
 1002          | 4             | 1             | 4             | 2
 1003          | 3             | 2             | 3             | 4
 
-Thus, `spread()` restores the imputed data set to the same format as original input (which contained missing data). `names` is used to reapply the column names of the original input.
+Thus, `spread()` restores the imputed data set to the same format as original input (which contained missing data). In this sense, `spread()` is the inverse of `gather()`, which was used in earlier code to transform the original input into the multi-level format required by BLIMP.
 
-The remainder of this code chunk verifies that the count of `NA` (now coded as `999`) is 0, and writes the final output to .csv. The output has no missing data and is thus ready for downstream analysis.
+In the remainder of this code chunk, `names()` is used to reapply the column names of the original input. The code verifies that the count of `NA` (now coded as `999`) is 0, and writes the final output to .csv. The output has no missing data and is thus ready for downstream analysis.
 
 ```{r reformat_impute, echo=5:18, eval=FALSE}
 ```

@@ -1,6 +1,7 @@
 # required packages
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
+suppressMessages(library(scales))
 
 # input parameters. Input file is .csv, with person ID column on far-left, and
 # remaining columns hold items, numbered in i001, i002, i003 etc. format.
@@ -17,7 +18,10 @@ input_orig <- suppressMessages(read_csv(here(
 names_input_orig <- names(input_orig)
 # Count NA across all columns
 NA_count <- sum(is.na(input_orig))
+NA_pct <- percent(NA_count/(nrow(input_orig)*(ncol(input_orig))))
 NA_count
+NA_pct
+
 # replace all NA with 999
 input_orig[is.na(input_orig)] <- 999
 # gather cols into nested (multi-level) format. Tall table has id, item,
