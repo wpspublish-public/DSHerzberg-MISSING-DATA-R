@@ -44,7 +44,7 @@ write_csv(input_gathered,
 # Reformat imputed data set for downstream analysis 
 temp1 <- suppressMessages(
   read_csv(
-    (here('SPM-P-impute1.csv')), col_names = F)[1:3])
+    (here('GOAL-EXAMPLE/GOAL-impute1.csv')), col_names = F)[1:3])
 names(temp1) <- c('id', 'item', 'response')
 temp2 <- temp1 %>% 
   spread(item, response) 

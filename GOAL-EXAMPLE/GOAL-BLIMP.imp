@@ -10,4 +10,4 @@ SEED: 90291;
 BURN: 2000;
 ITERATIONS: 1;
 OPTIONS: psr;
-#SAVE: separate = GOAL-impute*.csv;
+SAVE: separate = GOAL-impute*.csv;
