@@ -55,8 +55,8 @@ input_orig[is.na(input_orig)] <- 999
 
 input_gathered <- input_orig %>%
   gather('item','response',-id) %>% 
-  group_by(id) %>% 
-  arrange(id) %>% 
+  group_by(!!sym(id)) %>% 
+  arrange(!!sym(id)) %>% 
   mutate(item = as.factor(str_sub(item, 2, 4)))
 
 write_csv(input_gathered,
@@ -118,7 +118,9 @@ ID            | Item          | Response
 
 ```{r prep_BLIMP_input, echo=20:21, eval=FALSE}
 ```
-`dplyr::group_by(id)` collects the rows with identical values of `id`, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the data by `id`. `dplyr::mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to a factor by wrapping the expression in `as.factor()`.
+`dplyr::group_by(id)` collects the rows with identical values of `id`, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the data by `id`. Note the use of `rlang::sym()` (preceded by the `!!` operator) to force the evaluation of `id` as a name, instead of as a string. This is necessary because `dplyr` verbs automatically quote their inputs, and we need R to see `id` as the name of an object in the global environment, not as a quoted string.
+
+`dplyr::mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to a factor by wrapping the expression in `as.factor()`.
 ```{r prep_BLIMP_input, echo=22:24, eval=FALSE}
 ```
 Write the input file for BLIMP, stripping the column names `col_names = F` as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP

@@ -235,8 +235,8 @@ input_orig[is.na(input_orig)] &lt;- 999
 
 input_gathered &lt;- input_orig %&gt;%
   gather('item','response',-id) %&gt;% 
-  group_by(id) %&gt;% 
-  arrange(id) %&gt;% 
+  group_by(!!sym(id)) %&gt;% 
+  arrange(!!sym(id)) %&gt;% 
   mutate(item = as.factor(str_sub(item, 2, 4)))
 
 write_csv(input_gathered,
@@ -385,9 +385,10 @@ NA_count</code></pre>
 </table>
 <pre class="r"><code>input_gathered &lt;- input_orig %&gt;%
   gather('item','response',-id) %&gt;% </code></pre>
-<p><code>dplyr::group_by(id)</code> collects the rows with identical values of <code>id</code>, so they can retain the “single row” structure of the input table and be summarized in later procedures. <code>dplyr::arrange()</code> sorts the data by <code>id</code>. <code>dplyr::mutate()</code> modifies the <code>item</code> column in place, extracting the numeric portion of the value of <code>item</code> using <code>stringr::str_sub()</code>, and coercing it to a factor by wrapping the expression in <code>as.factor()</code>.</p>
-<pre class="r"><code>  group_by(id) %&gt;% 
-  arrange(id) %&gt;% 
+<p><code>dplyr::group_by(id)</code> collects the rows with identical values of <code>id</code>, so they can retain the “single row” structure of the input table and be summarized in later procedures. <code>dplyr::arrange()</code> sorts the data by <code>id</code>. Note the use of <code>rlang::sym()</code> (preceded by the <code>!!</code> operator) to force the evaluation of <code>id</code> as a name, instead of as a string. This is necessary because <code>dplyr</code> verbs automatically quote their inputs, and we need R to see <code>id</code> as the name of an object in the global environment, not as a quoted string.</p>
+<p><code>dplyr::mutate()</code> modifies the <code>item</code> column in place, extracting the numeric portion of the value of <code>item</code> using <code>stringr::str_sub()</code>, and coercing it to a factor by wrapping the expression in <code>as.factor()</code>.</p>
+<pre class="r"><code>  group_by(!!sym(id)) %&gt;% 
+  arrange(!!sym(id)) %&gt;% 
   mutate(item = as.factor(str_sub(item, 2, 4)))</code></pre>
 <p>Write the input file for BLIMP, stripping the column names <code>col_names = F</code> as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder (if it is not, a file path must be specified on the BLIMP <code>DATA</code> command).</p>
 <pre class="r"><code>write_csv(input_gathered,

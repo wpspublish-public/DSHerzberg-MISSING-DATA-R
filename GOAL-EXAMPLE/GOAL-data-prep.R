@@ -28,8 +28,8 @@ input_orig[is.na(input_orig)] <- 999
 # response cols.
 input_gathered <- input_orig %>%
   gather('item','response',-id) %>% 
-  group_by(id) %>% 
-  arrange(id) %>% 
+  group_by(!!sym(id)) %>% 
+  arrange(!!sym(id)) %>% 
   mutate(item = as.factor(str_sub(item, 2, 4)))
 
 # write BLIMP input file
