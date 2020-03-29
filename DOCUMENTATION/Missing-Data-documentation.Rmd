@@ -21,7 +21,7 @@ The code assumes a typical RStudio project folder hierarchy, with `INPUT-FILES` 
 
 ### Prepare data for BLIMP
 
-Input data should formatted with cases in rows and test items in columns, with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the `i001` consecutive nomenclature.
+Input data should formatted with cases in rows and test items in columns, with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the `i001` consecutive nomenclature. Do not include any variables in the input file besides the person ID and the item variables.
 
 Once data are in this format, run the next block of code to restructure the input for BLIMP.
 
@@ -37,16 +37,11 @@ Here and throughout, certain token markers are employed to designate user-input 
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 
-id <- c('{TOKEN}')
-first_item <- c('{TOKEN}')
-last_item <- c('{TOKEN}')
 file_name <- c('{FILE-NAME}')
 
 input_orig <- suppressMessages(read_csv(here(
   paste0('INPUT-FILES/', file_name, '.csv')
-))) %>% 
-  select(id, first_item:last_item)
-names_input_orig <- names(input_orig)
+))) 
 
 NA_count <- sum(is.na(input_orig))
 NA_count
@@ -55,8 +50,8 @@ input_orig[is.na(input_orig)] <- 999
 
 input_gathered <- input_orig %>%
   gather('item','response',-id) %>% 
-  group_by(!!sym(id)) %>% 
-  arrange(!!sym(id)) %>% 
+  group_by(!!sym(names(input_orig)[1])) %>% 
+  arrange(!!sym(names(input_orig)[1])) %>% 
   mutate(item = as.factor(str_sub(item, 2, 4)))
 
 write_csv(input_gathered,
@@ -66,28 +61,20 @@ write_csv(input_gathered,
 ```
 
 ###### COMMENTED SNIPPETS
-The snippet below contains user-programmable input paramaters. Here are the token substitutions:
-
-* `id`: name of person ID column
-* `first_item`: name of column holding first item
-* `last_item`: name of column holding last item
-* `file_name`: _prefix_ of input file name (i.e., stripped of `.csv`)
+The snippet below contains one user-programmable input paramater. For the token `{FILE-NAME}`, substitute the _prefix_ of input file name (i.e., the file name stripped of `.csv`). Then use `readr::read_csv()` to read the input file into `input_orig`.
 ```{r prep_BLIMP_input, echo=4:8, eval=FALSE}
 ```
-Read `readr::read_csv()` the input table into `input_orig`. Keep `dplyr::select()` only the `id` and `item` columns (the expression `first_item:last_item` captures all item columns, from first through last). Assign the column names of `input_org` to an object for later use.
-```{r prep_BLIMP_input, echo=9:13, eval=FALSE}
-```
 When data are read into R, missing values are coded `NA` (not available). The next snippet counts the `NA` cells across all items and persons in the input table. `is.na()` returns `TRUE` for each table cell containing `NA`. Because logical `TRUE` is equivalent to a numerical code of `1`, `sum()` returns the count of `NA` across all cells. `NA_count` prints this count to the console.
-```{r prep_BLIMP_input, echo=15:16, eval=FALSE}
+```{r prep_BLIMP_input, echo=10:11, eval=FALSE}
 ```
 Recode the `NA` in the input to `999`, a missing value code typically used by BLIMP. Assign the value `999` to the subset of cells within `input_orig` for which the predicate (logical) expression `is.na(input_orig)` returns `TRUE`.
-```{r prep_BLIMP_input, echo=18, eval=FALSE}
+```{r prep_BLIMP_input, echo=13, eval=FALSE}
 ```
 Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. In the multi-level structure, each person has the same number of rows as the number of items in the input file. 
 
 Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.
 
-`tidyr::gather()` transforms the table. In this call of `gather()`, `'item'` and `'response'` name the key and value columns, respectively. Recall that `input_orig` contains only the `id` and the `item` columns. Including `-id` in the `gather()`call drops this column from inclusion in the key-value reformatting. By excluding it in this way, `id` appears in the left-most position in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
+`tidyr::gather()` transforms the table. In this call of `gather()`, `'item'` and `'response'` name the key and value columns, respectively. Recall that `input_orig` contains only the `id` and the `item` columns. Including `-id` in the `gather()`call drops this column from inclusion in the key-value reformatting. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
 
 Here are examples of the table structure before and after this transformation, for three cases of a four-item test:
 
@@ -116,16 +103,20 @@ ID            | Item          | Response
 1003          | i03           | 3
 1003          | i04           | 4
 
-```{r prep_BLIMP_input, echo=20:21, eval=FALSE}
+```{r prep_BLIMP_input, echo=15:16, eval=FALSE}
 ```
-`dplyr::group_by(id)` collects the rows with identical values of `id`, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the data by `id`. Note the use of `rlang::sym()` (preceded by the `!!` operator) to force the evaluation of `id` as a name, instead of as a string. This is necessary because `dplyr` verbs automatically quote their inputs, and we need R to see `id` as the name of an object in the global environment, not as a quoted string.
+In the next snippet, `dplyr::group_by()` collects the rows with identical values on the person ID variable, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the rows by values of the person ID variable. 
 
-`dplyr::mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to a factor by wrapping the expression in `as.factor()`.
-```{r prep_BLIMP_input, echo=22:24, eval=FALSE}
+Within these two `dplyr` functions, the person ID variable is named by the expression `names(input_orig)[1]`. `base::names()` returns a vector of the column names of its argument (a data frame). Recall that in `input_orig`, the person ID variable is the left-most column, or column position `1`. In R, you can use single square brackets (e.g., `[1]`) to subset the column names vector by position.
+
+Note that `names(input_orig)[1]` is wrapped in `rlang::sym()` (preceded by the `!!` operator). `sym()` forces evaluation of its argument as a name, instead of as a string. This is necessary because `dplyr` verbs automatically quote their inputs, and we need R to see `names(input_orig)[1]` as the unquoted name of the person ID variable, not as a quoted string.
+
+`dplyr::mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to a factor by wrapping the expression in `base::as.factor()`.
+```{r prep_BLIMP_input, echo=17:19, eval=FALSE}
 ```
 Write the input file for BLIMP, stripping the column names `col_names = F` as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP
 script must also be located in this folder (if it is not, a file path must be specified on the BLIMP `DATA` command).
-```{r prep_BLIMP_input, echo=26:29, eval=FALSE}
+```{r prep_BLIMP_input, echo=21:24, eval=FALSE}
 ```
 
 <br>
@@ -235,11 +226,11 @@ The imputed data set is in a tall (gathered) format with the dummy code columns.
 ```{r reformat_impute, eval=FALSE}
 temp1 <- suppressMessages(
   read_csv(
-    (here('BLIMP-output1.csv')), col_names = F))
+    (here('TOD-impute1.csv')), col_names = F))
 names(temp1) <- c('id', 'item', 'response')
 temp2 <- temp1 %>% 
   spread(item, response) 
-names(temp2) <- names_input_orig
+names(temp2) <- names(input_orig)
 
 NA_count <- sum(temp2 == 999)
 NA_count
@@ -256,7 +247,7 @@ write_csv(temp2, here(
 <br>
 
 ###### COMMENTED SNIPPETS
-The imputed data file `BLIMP-output1.csv` has no column names, so `read_csv` must be called with the `col_names = F` argument (otherwise, the first row of data will be used as column names). Column names are applied from a character vector using `base::names()`.
+The imputed data file `BLIMP-output1.csv` has no column names, so `read_csv` must be called with the `col_names = F` argument (otherwise, the first row of data will be used as column names). Column names are applied to `temp1` from a character vector using `names()`.
 ```{r reformat_impute, echo=1:4, eval=FALSE}
 ```
 The data object `temp1` is a tall table in which `item`s and their associated `response`s are nested within each person `id` number, as in the following example:

@@ -202,7 +202,7 @@ $(document).ready(function () {
 </div>
 <div id="prepare-data-for-blimp" class="section level3">
 <h3>Prepare data for BLIMP</h3>
-<p>Input data should formatted with cases in rows and test items in columns, with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the <code>i001</code> consecutive nomenclature.</p>
+<p>Input data should formatted with cases in rows and test items in columns, with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the <code>i001</code> consecutive nomenclature. Do not include any variables in the input file besides the person ID and the item variables.</p>
 <p>Once data are in this format, run the next block of code to restructure the input for BLIMP.</p>
 <p>Here and throughout, certain token markers are employed to designate user-input values that vary by project:</p>
 <ul>
@@ -217,16 +217,11 @@ $(document).ready(function () {
 <pre class="r"><code>suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 
-id &lt;- c('{TOKEN}')
-first_item &lt;- c('{TOKEN}')
-last_item &lt;- c('{TOKEN}')
 file_name &lt;- c('{FILE-NAME}')
 
 input_orig &lt;- suppressMessages(read_csv(here(
   paste0('INPUT-FILES/', file_name, '.csv')
-))) %&gt;% 
-  select(id, first_item:last_item)
-names_input_orig &lt;- names(input_orig)
+))) 
 
 NA_count &lt;- sum(is.na(input_orig))
 NA_count
@@ -235,8 +230,8 @@ input_orig[is.na(input_orig)] &lt;- 999
 
 input_gathered &lt;- input_orig %&gt;%
   gather('item','response',-id) %&gt;% 
-  group_by(!!sym(id)) %&gt;% 
-  arrange(!!sym(id)) %&gt;% 
+  group_by(!!sym(names(input_orig)[1])) %&gt;% 
+  arrange(!!sym(names(input_orig)[1])) %&gt;% 
   mutate(item = as.factor(str_sub(item, 2, 4)))
 
 write_csv(input_gathered,
@@ -246,23 +241,12 @@ write_csv(input_gathered,
 </div>
 <div id="commented-snippets" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>The snippet below contains user-programmable input paramaters. Here are the token substitutions:</p>
-<ul>
-<li><code>id</code>: name of person ID column</li>
-<li><code>first_item</code>: name of column holding first item</li>
-<li><code>last_item</code>: name of column holding last item</li>
-<li><code>file_name</code>: <em>prefix</em> of input file name (i.e., stripped of <code>.csv</code>)</li>
-</ul>
-<pre class="r"><code>id &lt;- c('{TOKEN}')
-first_item &lt;- c('{TOKEN}')
-last_item &lt;- c('{TOKEN}')
-file_name &lt;- c('{FILE-NAME}')</code></pre>
-<p>Read <code>readr::read_csv()</code> the input table into <code>input_orig</code>. Keep <code>dplyr::select()</code> only the <code>id</code> and <code>item</code> columns (the expression <code>first_item:last_item</code> captures all item columns, from first through last). Assign the column names of <code>input_org</code> to an object for later use.</p>
-<pre class="r"><code>input_orig &lt;- suppressMessages(read_csv(here(
+<p>The snippet below contains one user-programmable input paramater. For the token <code>{FILE-NAME}</code>, substitute the <em>prefix</em> of input file name (i.e., the file name stripped of <code>.csv</code>). Then use <code>readr::read_csv()</code> to read the input file into <code>input_orig</code>.</p>
+<pre class="r"><code>file_name &lt;- c('{FILE-NAME}')
+
+input_orig &lt;- suppressMessages(read_csv(here(
   paste0('INPUT-FILES/', file_name, '.csv')
-))) %&gt;% 
-  select(id, first_item:last_item)
-names_input_orig &lt;- names(input_orig)</code></pre>
+))) </code></pre>
 <p>When data are read into R, missing values are coded <code>NA</code> (not available). The next snippet counts the <code>NA</code> cells across all items and persons in the input table. <code>is.na()</code> returns <code>TRUE</code> for each table cell containing <code>NA</code>. Because logical <code>TRUE</code> is equivalent to a numerical code of <code>1</code>, <code>sum()</code> returns the count of <code>NA</code> across all cells. <code>NA_count</code> prints this count to the console.</p>
 <pre class="r"><code>NA_count &lt;- sum(is.na(input_orig))
 NA_count</code></pre>
@@ -270,7 +254,7 @@ NA_count</code></pre>
 <pre class="r"><code>input_orig[is.na(input_orig)] &lt;- 999</code></pre>
 <p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. In the multi-level structure, each person has the same number of rows as the number of items in the input file.</p>
 <p>Within the set of rows that share an identical value for <code>id</code>, the left-right sequence of columns (item names) in the input file is represented in the <code>item</code> column, going down the rows. In the <code>response</code> column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.</p>
-<p><code>tidyr::gather()</code> transforms the table. In this call of <code>gather()</code>, <code>'item'</code> and <code>'response'</code> name the key and value columns, respectively. Recall that <code>input_orig</code> contains only the <code>id</code> and the <code>item</code> columns. Including <code>-id</code> in the <code>gather()</code>call drops this column from inclusion in the key-value reformatting. By excluding it in this way, <code>id</code> appears in the left-most position in the transformed table, and is “stretched” down the table, creating new duplicate rows for each value of <code>id</code>, such that there are the same number of rows for each value of <code>id</code> as the number of <code>item</code> columns in the input file. In the transformed table, the <code>item</code> column contains the <code>item</code> names from the input file, repeated anew for (nested within) each successive set of <code>id</code> rows. The <code>response</code> column contains the item responses for each particular pairing of <code>id</code> and <code>item</code> values.</p>
+<p><code>tidyr::gather()</code> transforms the table. In this call of <code>gather()</code>, <code>'item'</code> and <code>'response'</code> name the key and value columns, respectively. Recall that <code>input_orig</code> contains only the <code>id</code> and the <code>item</code> columns. Including <code>-id</code> in the <code>gather()</code>call drops this column from inclusion in the key-value reformatting. By excluding it in this way, <code>id</code> appears as the left-most column in the transformed table, and is “stretched” down the table, creating new duplicate rows for each value of <code>id</code>, such that there are the same number of rows for each value of <code>id</code> as the number of <code>item</code> columns in the input file. In the transformed table, the <code>item</code> column contains the <code>item</code> names from the input file, repeated anew for (nested within) each successive set of <code>id</code> rows. The <code>response</code> column contains the item responses for each particular pairing of <code>id</code> and <code>item</code> values.</p>
 <p>Here are examples of the table structure before and after this transformation, for three cases of a four-item test:</p>
 </div>
 <div id="before" class="section level6">
@@ -385,10 +369,12 @@ NA_count</code></pre>
 </table>
 <pre class="r"><code>input_gathered &lt;- input_orig %&gt;%
   gather('item','response',-id) %&gt;% </code></pre>
-<p><code>dplyr::group_by(id)</code> collects the rows with identical values of <code>id</code>, so they can retain the “single row” structure of the input table and be summarized in later procedures. <code>dplyr::arrange()</code> sorts the data by <code>id</code>. Note the use of <code>rlang::sym()</code> (preceded by the <code>!!</code> operator) to force the evaluation of <code>id</code> as a name, instead of as a string. This is necessary because <code>dplyr</code> verbs automatically quote their inputs, and we need R to see <code>id</code> as the name of an object in the global environment, not as a quoted string.</p>
-<p><code>dplyr::mutate()</code> modifies the <code>item</code> column in place, extracting the numeric portion of the value of <code>item</code> using <code>stringr::str_sub()</code>, and coercing it to a factor by wrapping the expression in <code>as.factor()</code>.</p>
-<pre class="r"><code>  group_by(!!sym(id)) %&gt;% 
-  arrange(!!sym(id)) %&gt;% 
+<p>In the next snippet, <code>dplyr::group_by()</code> collects the rows with identical values on the person ID variable, so they can retain the “single row” structure of the input table and be summarized in later procedures. <code>dplyr::arrange()</code> sorts the rows by values of the person ID variable.</p>
+<p>Within these two <code>dplyr</code> functions, the person ID variable is named by the expression <code>names(input_orig)[1]</code>. <code>base::names()</code> returns a vector of the column names of its argument (a data frame). Recall that in <code>input_orig</code>, the person ID variable is the left-most column, or column position <code>1</code>. In R, you can use single square brackets (e.g., <code>[1]</code>) to subset the column names vector by position.</p>
+<p>Note that <code>names(input_orig)[1]</code> is wrapped in <code>rlang::sym()</code> (preceded by the <code>!!</code> operator). <code>sym()</code> forces evaluation of its argument as a name, instead of as a string. This is necessary because <code>dplyr</code> verbs automatically quote their inputs, and we need R to see <code>names(input_orig)[1]</code> as the unquoted name of the person ID variable, not as a quoted string.</p>
+<p><code>dplyr::mutate()</code> modifies the <code>item</code> column in place, extracting the numeric portion of the value of <code>item</code> using <code>stringr::str_sub()</code>, and coercing it to a factor by wrapping the expression in <code>base::as.factor()</code>.</p>
+<pre class="r"><code>  group_by(!!sym(names(input_orig)[1])) %&gt;% 
+  arrange(!!sym(names(input_orig)[1])) %&gt;% 
   mutate(item = as.factor(str_sub(item, 2, 4)))</code></pre>
 <p>Write the input file for BLIMP, stripping the column names <code>col_names = F</code> as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder (if it is not, a file path must be specified on the BLIMP <code>DATA</code> command).</p>
 <pre class="r"><code>write_csv(input_gathered,
@@ -477,11 +463,11 @@ SAVE: separate = BLIMP-output*.csv;</code></pre>
 <h6>VALID CODE TO RUN</h6>
 <pre class="r"><code>temp1 &lt;- suppressMessages(
   read_csv(
-    (here('BLIMP-output1.csv')), col_names = F))
+    (here('TOD-impute1.csv')), col_names = F))
 names(temp1) &lt;- c('id', 'item', 'response')
 temp2 &lt;- temp1 %&gt;% 
   spread(item, response) 
-names(temp2) &lt;- names_input_orig
+names(temp2) &lt;- names(input_orig)
 
 NA_count &lt;- sum(temp2 == 999)
 NA_count
@@ -497,10 +483,10 @@ write_csv(temp2, here(
 </div>
 <div id="commented-snippets-2" class="section level6">
 <h6>COMMENTED SNIPPETS</h6>
-<p>The imputed data file <code>BLIMP-output1.csv</code> has no column names, so <code>read_csv</code> must be called with the <code>col_names = F</code> argument (otherwise, the first row of data will be used as column names). Column names are applied from a character vector using <code>base::names()</code>.</p>
+<p>The imputed data file <code>BLIMP-output1.csv</code> has no column names, so <code>read_csv</code> must be called with the <code>col_names = F</code> argument (otherwise, the first row of data will be used as column names). Column names are applied to <code>temp1</code> from a character vector using <code>names()</code>.</p>
 <pre class="r"><code>temp1 &lt;- suppressMessages(
   read_csv(
-    (here('BLIMP-output1.csv')), col_names = F))
+    (here('TOD-impute1.csv')), col_names = F))
 names(temp1) &lt;- c('id', 'item', 'response')</code></pre>
 <p>The data object <code>temp1</code> is a tall table in which <code>item</code>s and their associated <code>response</code>s are nested within each person <code>id</code> number, as in the following example:</p>
 </div>
@@ -619,7 +605,7 @@ names(temp1) &lt;- c('id', 'item', 'response')</code></pre>
 <p>In the remainder of this code chunk, <code>names()</code> is used to reapply the column names of the original input. The code verifies that the count of <code>NA</code> (now coded as <code>999</code>) is 0, and writes the final output to .csv. The output has no missing data and is thus ready for downstream analysis.</p>
 <pre class="r"><code>temp2 &lt;- temp1 %&gt;% 
   spread(item, response) 
-names(temp2) &lt;- names_input_orig
+names(temp2) &lt;- names(input_orig)
 
 NA_count &lt;- sum(temp2 == 999)
 NA_count
