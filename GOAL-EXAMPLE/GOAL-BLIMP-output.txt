@@ -1,0 +1,108 @@
+
+---------------------------------------------------------------------------
+
+                                   Blimp
+                                   2.2.2
+
+         Developed by Craig K. Enders, Brian T. Keller, and Han Du.
+                   Blimp was developed with funding from
+                     Institute of Educational Sciences
+                    awards R305D150056 and R305D190002.
+            Craig K. Enders, P.I. Email: cenders@psych.ucla.edu
+      Programming by Brian T. Keller, Co-P.I. Email: bkeller2@ucla.edu
+                 Han Du, Co-P.I. Email: hdu@psych.ucla.edu
+                   There is no expressed license given.
+
+
+                 DO NOT DISTRIBUTE WITHOUT WRITTEN CONSENT
+
+---------------------------------------------------------------------------
+
+
+ALGORITHMIC OPTIONS SPECIFIED:
+
+  Imputation method:                 Fully Bayesian model-based
+  MCMC algorithm:                    Full conditional Metropolis sampler
+  Between-cluster imputation model:  Latent cluster means (LATENT)
+  Residual variance structure:       Homogeneous level-1 variance (HOV)
+  Prior for covariance matrices:     Zero matrix, df = -(p + 1) (PRIOR2)
+  Prior for residual variance:       Zero sum of squares, df = -2 (PRIOR2)
+  Prior for covariate model:         Unit sum of squares, df = 2 (XPRIOR1)
+  Diagnostics:                       No potential scale reduction (NOPSR)
+  Imputation format:                 Separate files (SEPARATE)
+
+---------------------------------------------------------------------------
+
+DATA INFORMATION:
+
+  Sample Size:            129492
+  Level-2 Clusters:       981
+  Missing Data Code:      999.000  
+  Missing Data Rates:
+
+              response = 28.11%
+
+---------------------------------------------------------------------------
+
+VARIABLES IN IMPUTATION MODEL:
+
+  Level-2 identifier:     id
+  Fixed covariates:       itemnum#2 itemnum#3 itemnum#4 itemnum#5 itemnum#6
+                          itemnum#7 itemnum#8 itemnum#9
+                          itemnum#10 itemnum#11 itemnum#12 itemnum#13
+                          itemnum#14 itemnum#15 itemnum#16 itemnum#17
+                          itemnum#18 itemnum#19 itemnum#20
+                          itemnum#21 itemnum#22 itemnum#23 itemnum#24
+                          itemnum#25 itemnum#26 itemnum#27
+                          itemnum#28 itemnum#29 itemnum#30 itemnum#31
+                          itemnum#32 itemnum#33 itemnum#34
+                          itemnum#35 itemnum#36 itemnum#37 itemnum#38
+                          itemnum#39 itemnum#40 itemnum#41
+                          itemnum#42 itemnum#43 itemnum#44 itemnum#45
+                          itemnum#46 itemnum#47 itemnum#48
+                          itemnum#49 itemnum#50 itemnum#51 itemnum#52
+                          itemnum#53 itemnum#54 itemnum#55 itemnum#56
+                          itemnum#57 itemnum#58 itemnum#59
+                          itemnum#60 itemnum#61 itemnum#62 itemnum#63
+                          itemnum#64 itemnum#65 itemnum#66
+                          itemnum#67 itemnum#68 itemnum#69 itemnum#70
+                          itemnum#71 itemnum#72 itemnum#73
+                          itemnum#74 itemnum#75 itemnum#76 itemnum#77
+                          itemnum#78 itemnum#79 itemnum#80
+                          itemnum#81 itemnum#82 itemnum#83 itemnum#84
+                          itemnum#85 itemnum#86 itemnum#87
+                          itemnum#88 itemnum#89 itemnum#90 itemnum#91
+                          itemnum#92 itemnum#93 itemnum#94 itemnum#95
+                          itemnum#96 itemnum#97 itemnum#98
+                          itemnum#99 itemnum#100 itemnum#101
+                          itemnum#102 itemnum#103 itemnum#104 itemnum#105
+                          itemnum#106 itemnum#107 itemnum#108
+                          itemnum#109 itemnum#110 itemnum#111
+                          itemnum#112 itemnum#113 itemnum#114
+                          itemnum#115 itemnum#116 itemnum#117 itemnum#118
+                          itemnum#119 itemnum#120 itemnum#121
+                          itemnum#122 itemnum#123 itemnum#124
+                          itemnum#125 itemnum#126 itemnum#127
+                          itemnum#128 itemnum#129 itemnum#130 itemnum#131
+                          itemnum#132
+  Missing outcome:        response (ordinal)
+
+---------------------------------------------------------------------------
+
+ITERATION HISTORY:
+
+Starting Burn-in on Tue Jul  7 14:35:54 2020
+    Burn-in iteration 500 completed on Tue Jul  7 14:40:26 2020
+    Burn-in iteration 1000 completed on Tue Jul  7 14:44:56 2020
+    Burn-in iteration 1500 completed on Tue Jul  7 14:49:31 2020
+    Burn-in iteration 2000 completed on Tue Jul  7 14:53:57 2020
+Burn-in completed on Tue Jul  7 14:53:57 2020
+    Imputation saved 1 on Tue Jul  7 14:53:57 2020
+
+---------------------------------------------------------------------------
+
+VARIABLE ORDER IN SAVED DATA:
+
+   id itemnum response
+
+---------------------------------------------------------------------------

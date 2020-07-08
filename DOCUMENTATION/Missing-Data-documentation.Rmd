@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ### Overview  
 
-In this method, an input file with missing data is prepped in R and then run through BLIMP, which estimates a regression model and generates an output data set in which all missing cells are replaced with imputed values.
+In this method, an input file with missing data is prepped in R and then run through BLIMP, which estimates missing data using multiple imputation and generates an output data set in which all missing cells are replaced with imputed values.
 
 This procedure assumes that data are missing from the input file due to the missing at random (MAR) mechanism. A discussion of missing data theory is beyond the scope of this document, and such knowledge is not needed to use the method described here. Enders (2010) provides a thorough treament of missing data methods and theory.
 
@@ -37,10 +37,10 @@ Here and throughout, certain token markers are employed to designate user-input 
 suppressMessages(library(here))
 suppressMessages(library(tidyverse))
 
-file_name <- c('{FILE-NAME}')
+file_name <- c("{FILE-NAME}")
 
 input_orig <- suppressMessages(read_csv(here(
-  paste0('INPUT-FILES/', file_name, '.csv')
+  str_c("INPUT-FILES/", file_name, ".csv")
 ))) 
 
 NA_count <- sum(is.na(input_orig))
@@ -48,20 +48,22 @@ NA_count
 
 input_orig[is.na(input_orig)] <- 999
 
-input_gathered <- input_orig %>%
-  gather('item','response',-id) %>% 
-  group_by(!!sym(names(input_orig)[1])) %>% 
-  arrange(!!sym(names(input_orig)[1])) %>% 
-  mutate(item = as.factor(str_sub(item, 2, 4)))
+input_tall <- input_orig %>%
+  pivot_longer(cols = -id,
+               names_to = "item",
+               values_to = "response") %>%
+  mutate(across(c(item), ~ as.factor(str_sub(item, 2, 4))))
 
-write_csv(input_gathered,
-          here(paste0(file_name, '-BLIMP-input.csv')),
+write_csv(input_tall,
+          here(
+            str_c(file_name, '-BLIMP-input.csv')
+            ),
           col_names = F
 )
 ```
 
 ###### COMMENTED SNIPPETS
-The snippet below contains one user-programmable input paramater. For the token `{FILE-NAME}`, substitute the _prefix_ of input file name (i.e., the file name stripped of `.csv`). Then use `readr::read_csv()` to read the input file into `input_orig`.
+The snippet below contains one user-programmable input paramater. For the token `{FILE-NAME}`, substitute the _prefix_ of input file name (i.e., the file name stripped of `.csv`). Then use `readr::read_csv()` to read the input file into `input_orig`. `here::here()` holds the file path to input file; within `here()`, `stringr::str_c()` concatenates a sequence of string elements into a single string representing the file path.
 ```{r prep_BLIMP_input, echo=4:8, eval=FALSE}
 ```
 When data are read into R, missing values are coded `NA` (not available). The next snippet counts the `NA` cells across all items and persons in the input table. `is.na()` returns `TRUE` for each table cell containing `NA`. Because logical `TRUE` is equivalent to a numerical code of `1`, `sum()` returns the count of `NA` across all cells. `NA_count` prints this count to the console.
@@ -72,9 +74,15 @@ Recode the `NA` in the input to `999`, a missing value code typically used by BL
 ```
 Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. In the multi-level structure, each person has the same number of rows as the number of items in the input file. 
 
-Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide (or spread) input table, to a tall (or gathered) piped data object.
+Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide input table, to a tall (long) data object.
 
-`tidyr::gather()` transforms the table. In this call of `gather()`, `'item'` and `'response'` name the key and value columns, respectively. Recall that `input_orig` contains only the `id` and the `item` columns. Including `-id` in the `gather()`call drops this column from inclusion in the key-value reformatting. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
+`tidyr::pivot_longer()` transforms the table. The argument `cols = -id` identifies the columns that are to be changed from wide to long format. Recall that `input_orig` contains only the `id` and the `item` columns. The `-` (minus) operator indicates that `id` is to be _excluded_ from the set of columns to be changed from wide to long. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. 
+
+The argument `names_to = "item"` indicates that the keys of the key-value pairs created by `pivot_longer()` will be stored in a column named `item`.
+
+## start here
+
+In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
 
 Here are examples of the table structure before and after this transformation, for three cases of a four-item test:
 
@@ -103,7 +111,7 @@ ID            | Item          | Response
 1003          | i03           | 3
 1003          | i04           | 4
 
-```{r prep_BLIMP_input, echo=15:16, eval=FALSE}
+```{r prep_BLIMP_input, echo=15:18, eval=FALSE}
 ```
 In the next snippet, `dplyr::group_by()` collects the rows with identical values on the person ID variable, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the rows by values of the person ID variable. 
 
@@ -224,19 +232,29 @@ The imputed data set is in a tall (gathered) format with the dummy code columns.
 ###### VALID CODE TO RUN
 
 ```{r reformat_impute, eval=FALSE}
+impute_name <- c("{FILE-NAME}")
+impute_path <- c("{FILE-PATH}")
+
 temp1 <- suppressMessages(
   read_csv(
-    (here('TOD-impute1.csv')), col_names = F))
-names(temp1) <- c('id', 'item', 'response')
+    here(
+    str_c(impute_path, impute_name, ".csv")
+  ),
+    col_names = F))
+names(temp1) <- c("id", "item", "response")
 temp2 <- temp1 %>% 
-  spread(item, response) 
+  pivot_wider(
+    id_cols = id,
+    names_from = c(item),
+    values_from = response
+  )
 names(temp2) <- names(input_orig)
 
 NA_count <- sum(temp2 == 999)
 NA_count
 
 write_csv(temp2, here(
-  paste0(
+  str_c(
     'OUTPUT-FILES/',
     file_name,
     '-noMiss.csv'
