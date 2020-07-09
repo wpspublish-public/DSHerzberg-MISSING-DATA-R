@@ -12,11 +12,11 @@ NA_count
 
 input_orig[is.na(input_orig)] <- 999
 
-input_tall <- input_orig %>%
+input_tall1 <- input_orig %>%
   pivot_longer(cols = -id,
                names_to = "item",
                values_to = "response") %>%
-  mutate(across(c(item), ~ str_sub(item, 2, 4)))
+  mutate(across(item, ~ str_sub(., 2, 4)))
 
 write_csv(input_tall,
           here(
@@ -37,7 +37,7 @@ names(temp1) <- c("id", "item", "response")
 temp2 <- temp1 %>% 
   pivot_wider(
     id_cols = id,
-    names_from = c(item),
+    names_from = item,
     values_from = response
   )
 names(temp2) <- names(input_orig)

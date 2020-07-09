@@ -23,7 +23,7 @@ The code assumes a typical RStudio project folder hierarchy, with `INPUT-FILES` 
 
 Input data should formatted with cases in rows and test items in columns, with a person ID column on the far left. On the input file, items should be renamed as follows: i001, i002, i003, etc. If the input file includes items from different scales/subtests, with different prefixes in their names, those prefixes must be dropped and the items renamed with the `i001` consecutive nomenclature. Do not include any variables in the input file besides the person ID and the item variables.
 
-Once data are in this format, run the next block of code to restructure the input for BLIMP.
+Once data are in this format, run the next block of R code to restructure the input for BLIMP.
 
 Here and throughout, certain token markers are employed to designate user-input values that vary by project:  
 
@@ -52,7 +52,7 @@ input_tall <- input_orig %>%
   pivot_longer(cols = -id,
                names_to = "item",
                values_to = "response") %>%
-  mutate(across(c(item), ~ as.factor(str_sub(item, 2, 4))))
+  mutate(across(item, ~ str_sub(., 2, 4)))
 
 write_csv(input_tall,
           here(
@@ -74,11 +74,11 @@ Recode the `NA` in the input to `999`, a missing value code typically used by BL
 ```
 Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain _name-value pairs_ of items and their associated responses. In the multi-level structure, each person (each unique value of `id`) has the same number of rows as the number of items in the input file. 
 
-Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide input table, to a tall (long) data object.
+Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide input table to a tall (long) data object.
 
-`tidyr::pivot_longer()` transforms the table. The argument `cols = -id` identifies the columns that are to be changed from wide to long format. Recall that `input_orig` contains only the `id` and the `item` columns. The `-` (minus) operator indicates that `id` is to be _excluded_ from the set of columns to be changed from wide to long. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. 
+We use `tidyr::pivot_longer()` to reshape the table. The argument `cols = -id` identifies the columns that are to be changed from wide to long format. Recall that `input_orig` contains only the `id` and the `item` columns. The `-` (minus) operator indicates that `id` is to be _excluded_ from the set of columns to be changed from wide to long. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. 
 
-The argument `names_to = "item"` indicates that the _names_ of the name-value pairs created by `pivot_longer()` will be stored in a column named `item`. The argument `values_to = "response"` indicates that the _values_ of the name-value pairs created by `pivot_longer()` will be stored in a column named `response`.
+The argument `names_to = "item"` indicates that the _names_ of the name-value pairs created by `pivot_longer()` will be stored in a column named `item`. The argument `values_to = "response"` indicates that the _values_ of the name-value pairs will be stored in a column named `response`.
 
 In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each specific pairing of `id` and `item` values.
 
@@ -111,12 +111,10 @@ ID            | Item          | Response
 
 ```{r prep_BLIMP_input, echo=15:18, eval=FALSE}
 ```
-## START HERE - NO as.factor()
-
-`dplyr::mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to a factor by wrapping the expression in `base::as.factor()`.
+BLIMP requires the item names in the `item` column to be numbers, not character strings. We can use `dplyr::mutate()` to make this change. Within `mutate()`, we use `across()` to apply a function to a subset of columns. The first argument specifies that `item` is the column to be modified. The second argument uses the formula shorthand `~` to apply `stringr::str_sub()` to the `item` column. The dot shorthand `.` indicates that `str_sub()` will operate on the previously subsetted column, and `2, 4` indicates that `str_sub()` will extract the numerical portion of the item name (that is, the substring within the name starting at position `2` and ending at position `4`).
 ```{r prep_BLIMP_input, echo = 19, eval = F}
 ```
-Write the input file for BLIMP, stripping the column names `col_names = F` as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP
+We now use `readr::write_csv` to save the input file for BLIMP as a `.csv`, stripping the column names `col_names = F` as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP
 script must also be located in this folder (if it is not, a file path must be specified on the BLIMP `DATA` command).
 ```{r prep_BLIMP_input, echo = 21:24, eval=FALSE}
 ```
@@ -131,7 +129,7 @@ After processing in R, the BLIMP input file has the following structure:
 * The structure is multi-level, in which item-response pairs are nested within each value of Person ID
 * No column (variable) names
 
-In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of multiple regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, evaluates indices of fit, and adjusts parameters accordingly. Iteration continues for a defined interval. The final regression equations are then used to impute missing values.
+In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of multiple regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, derives regression equations, imputes missing data by adding random residual terms to the regression equations, and repeats the process using the newly-imputed data set. Iteration continues for a defined interval to allow regression coefficients to stabilize. The stable regression equations are then used to impute a final complete data set that can be used for downstream analysis.
 
 The model estimation process must include a burn-in phase: a series of iterations that allow the regression parameters to converge (stabilize). The number of iterations required for burn-in varies by data set and is initially unknown. BLIMP supplies a metric for determining convergence: potential scale reduction (PSR). An acceptable burn-in interval is defined as the minimum number of iterations required to yield a PSR value in the range of 1.05-1.10.
 
@@ -193,7 +191,7 @@ OPTIONS: psr;
 SAVE: separate = BLIMP-output*.csv;
 ```
 
-###### COMMENTED SNIPPETS
+###### COMMENTS
 In order to run as written, the `DATA` command must name a file located in the same folder/directory as the BLIMP script. If the input file is located elsewhere, a file path must be specified on `DATA`. Because the input date file has no column names, the `VARIABLES` command is used to name the three columns in the input file: `id`, `itemnum`, `response`. The number of names on the `VARIABLES` line must be identical to the number of columns in the input file.
 ```{r BLIMP_MF, echo=1:2, eval=FALSE}
 ```
@@ -202,7 +200,7 @@ In order to run as written, the `DATA` command must name a file located in the s
 ```
 `FIXED` is used to designate variables that will not have their means and variances estimated during computation. Fixing variables in this way increases computational efficiency. In this example, the means and variances of the nominal item number variable are not of substantive interest; thus, there is no reason to estimate these parameters. 
 
-`CLUSTERID` designates a multilevel (nested) design. In this example, on the input file, key-value pairs of `itemnum` and `response` are nested within each value of `id`.
+`CLUSTERID` designates a multilevel (nested) design. In this example, on the input file, name-value pairs of `itemnum` and `response` are nested within each value of `id`.
 ```{r BLIMP_MF, echo=5:6, eval=FALSE}
 ```
 `MISSING` identifies the missing data code (`999` was coded in the input file by the R script). `MODEL` specifies the regression model that will be used for imputation. On this `MODEL` line, `response` is regressed on the dummy-coded item-number variable (dummy codes were created by listing `itemnum` on the `NOMINAL` command line). 
@@ -221,7 +219,7 @@ In order to run as written, the `DATA` command must name a file located in the s
 
 ### Reformat imputed data set for downstream analysis
 
-The imputed data set is in a tall (gathered) format with the dummy code columns. This code restores the data to its original input structure and writes an output file.
+BLIMP writes the imputed data set as a `.csv`, in a tall format without column names. This R code restores the imputed data to its original input structure for subsequent analysis.
 
 ###### VALID CODE TO RUN
 
@@ -239,7 +237,7 @@ names(temp1) <- c("id", "item", "response")
 temp2 <- temp1 %>% 
   pivot_wider(
     id_cols = id,
-    names_from = c(item),
+    names_from = item,
     values_from = response
   )
 names(temp2) <- names(input_orig)
@@ -259,8 +257,8 @@ write_csv(temp2, here(
 <br>
 
 ###### COMMENTED SNIPPETS
-The imputed data file `BLIMP-output1.csv` has no column names, so `read_csv` must be called with the `col_names = F` argument (otherwise, the first row of data will be used as column names). Column names are applied to `temp1` from a character vector using `names()`.
-```{r reformat_impute, echo=1:4, eval=FALSE}
+The imputed data file `BLIMP-output1.csv` has no column names, so `read_csv()` must be called with the `col_names = F` argument (otherwise, the first row of data will be used as column names). The imputed data file is read into an R object called `temp1`. Column names are applied to `temp1` from a character vector using `base::names()`.
+```{r reformat_impute, echo=1:10, eval=FALSE}
 ```
 The data object `temp1` is a tall table in which `item`s and their associated `response`s are nested within each person `id` number, as in the following example:
 
@@ -281,7 +279,9 @@ id            | item          | response
 1003          | i03           | 3
 1003          | i04           | 4
 
-The application of `tidyr::spread()` collapses the muliple rows of `id` into a single row. The call identifies the key-value pair: `item` (key) and `response` (value). The values of `item` are used to name new columns going left-to-right across the table. The values of `response` become the cell entries at the intersection of each `id` row and `item` column. The transformed table appears as in the example below:
+To restore this data object to a wide format, we call `tidyr::pivot_wider()`. Its first argument `id_cols = id` collapses the multiple duplicate rows of `id` into a single row for each `id` number. `names_from = item` indicates that the values of the `item` column are used to name new columns going left-to-right across the transformed table. `values_from = response` indicates that values from the `response` column are used to fill the cells of the newly restored item columns. In the restructured table, each `id` row holds all of the item responses for a single person, as in the original input file.
+
+The transformed table appears as in the example below:
 
 ###### After
 
@@ -291,9 +291,9 @@ id            | i01           | i02           | i03           | i04
 1002          | 4             | 1             | 4             | 2
 1003          | 3             | 2             | 3             | 4
 
-Thus, `spread()` restores the imputed data set to the same format as original input (which contained missing data). In this sense, `spread()` is the inverse of `gather()`, which was used in earlier code to transform the original input into the multi-level format required by BLIMP.
+Thus, `pivot_wider` restores the imputed data set to the same format as original input (which contained missing data). In this sense, `pivot_wider` is the inverse of `pivot_longer`, which was used in earlier code to transform the original input into the multi-level (nested) format required by BLIMP.
 
-In the remainder of this code chunk, `names()` is used to reapply the column names of the original input. The code verifies that the count of `NA` (now coded as `999`) is 0, and writes the final output to .csv. The output has no missing data and is thus ready for downstream analysis.
+In the remainder of this code chunk, `names()` is used to reapply the column names of the original input. The code verifies that the count of `NA` (now coded as `999`) is 0, and writes the final output to `.csv`. The output has no missing data and is thus ready for downstream analysis.
 
-```{r reformat_impute, echo=5:18, eval=FALSE}
+```{r reformat_impute, echo=11:28, eval=FALSE}
 ```
