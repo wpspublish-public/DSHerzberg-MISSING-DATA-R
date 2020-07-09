@@ -91,13 +91,13 @@ VARIABLES IN IMPUTATION MODEL:
 
 ITERATION HISTORY:
 
-Starting Burn-in on Tue Jul  7 14:35:54 2020
-    Burn-in iteration 500 completed on Tue Jul  7 14:40:26 2020
-    Burn-in iteration 1000 completed on Tue Jul  7 14:44:56 2020
-    Burn-in iteration 1500 completed on Tue Jul  7 14:49:31 2020
-    Burn-in iteration 2000 completed on Tue Jul  7 14:53:57 2020
-Burn-in completed on Tue Jul  7 14:53:57 2020
-    Imputation saved 1 on Tue Jul  7 14:53:57 2020
+Starting Burn-in on Wed Jul  8 17:07:31 2020
+    Burn-in iteration 500 completed on Wed Jul  8 17:12:05 2020
+    Burn-in iteration 1000 completed on Wed Jul  8 17:16:35 2020
+    Burn-in iteration 1500 completed on Wed Jul  8 17:21:10 2020
+    Burn-in iteration 2000 completed on Wed Jul  8 17:25:39 2020
+Burn-in completed on Wed Jul  8 17:25:39 2020
+    Imputation saved 1 on Wed Jul  8 17:25:40 2020
 
 ---------------------------------------------------------------------------
 

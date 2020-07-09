@@ -16,7 +16,7 @@ input_tall <- input_orig %>%
   pivot_longer(cols = -id,
                names_to = "item",
                values_to = "response") %>%
-  mutate(across(c(item), ~ as.factor(str_sub(item, 2, 4))))
+  mutate(across(c(item), ~ str_sub(item, 2, 4)))
 
 write_csv(input_tall,
           here(

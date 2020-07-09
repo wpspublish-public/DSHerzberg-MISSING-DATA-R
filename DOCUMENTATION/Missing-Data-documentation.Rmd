@@ -72,19 +72,17 @@ When data are read into R, missing values are coded `NA` (not available). The ne
 Recode the `NA` in the input to `999`, a missing value code typically used by BLIMP. Assign the value `999` to the subset of cells within `input_orig` for which the predicate (logical) expression `is.na(input_orig)` returns `TRUE`.
 ```{r prep_BLIMP_input, echo=13, eval=FALSE}
 ```
-Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. In the multi-level structure, each person has the same number of rows as the number of items in the input file. 
+Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain _name-value pairs_ of items and their associated responses. In the multi-level structure, each person (each unique value of `id`) has the same number of rows as the number of items in the input file. 
 
 Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `response` column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide input table, to a tall (long) data object.
 
 `tidyr::pivot_longer()` transforms the table. The argument `cols = -id` identifies the columns that are to be changed from wide to long format. Recall that `input_orig` contains only the `id` and the `item` columns. The `-` (minus) operator indicates that `id` is to be _excluded_ from the set of columns to be changed from wide to long. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. 
 
-The argument `names_to = "item"` indicates that the keys of the key-value pairs created by `pivot_longer()` will be stored in a column named `item`.
+The argument `names_to = "item"` indicates that the _names_ of the name-value pairs created by `pivot_longer()` will be stored in a column named `item`. The argument `values_to = "response"` indicates that the _values_ of the name-value pairs created by `pivot_longer()` will be stored in a column named `response`.
 
-## start here
+In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each specific pairing of `id` and `item` values.
 
-In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `response` column contains the item responses for each particular pairing of `id` and `item` values.
-
-Here are examples of the table structure before and after this transformation, for three cases of a four-item test:
+To understand how the transformation works, consider the following "before" and "after" examples of a small table containing three cases with responses from a four-item test:
 
 ###### Before
 
@@ -113,18 +111,14 @@ ID            | Item          | Response
 
 ```{r prep_BLIMP_input, echo=15:18, eval=FALSE}
 ```
-In the next snippet, `dplyr::group_by()` collects the rows with identical values on the person ID variable, so they can retain the "single row" structure of the input table and be summarized in later procedures. `dplyr::arrange()` sorts the rows by values of the person ID variable. 
-
-Within these two `dplyr` functions, the person ID variable is named by the expression `names(input_orig)[1]`. `base::names()` returns a vector of the column names of its argument (a data frame). Recall that in `input_orig`, the person ID variable is the left-most column, or column position `1`. In R, you can use single square brackets (e.g., `[1]`) to subset the column names vector by position.
-
-Note that `names(input_orig)[1]` is wrapped in `rlang::sym()` (preceded by the `!!` operator). `sym()` forces evaluation of its argument as a name, instead of as a string. This is necessary because `dplyr` verbs automatically quote their inputs, and we need R to see `names(input_orig)[1]` as the unquoted name of the person ID variable, not as a quoted string.
+## START HERE - NO as.factor()
 
 `dplyr::mutate()` modifies the `item` column in place, extracting the numeric portion of the value of `item` using `stringr::str_sub()`, and coercing it to a factor by wrapping the expression in `base::as.factor()`.
-```{r prep_BLIMP_input, echo=17:19, eval=FALSE}
+```{r prep_BLIMP_input, echo = 19, eval = F}
 ```
 Write the input file for BLIMP, stripping the column names `col_names = F` as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP
 script must also be located in this folder (if it is not, a file path must be specified on the BLIMP `DATA` command).
-```{r prep_BLIMP_input, echo=21:24, eval=FALSE}
+```{r prep_BLIMP_input, echo = 21:24, eval=FALSE}
 ```
 
 <br>

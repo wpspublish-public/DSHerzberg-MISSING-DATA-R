@@ -427,16 +427,13 @@ input_orig &lt;- suppressMessages(read_csv(here(
 NA_count</code></pre>
 <p>Recode the <code>NA</code> in the input to <code>999</code>, a missing value code typically used by BLIMP. Assign the value <code>999</code> to the subset of cells within <code>input_orig</code> for which the predicate (logical) expression <code>is.na(input_orig)</code> returns <code>TRUE</code>.</p>
 <pre class="r"><code>input_orig[is.na(input_orig)] &lt;- 999</code></pre>
-<p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain key-value pairs of item-response. In the multi-level structure, each person has the same number of rows as the number of items in the input file.</p>
+<p>Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and responses are nested within each person. The nested rows contain <em>name-value pairs</em> of items and their associated responses. In the multi-level structure, each person (each unique value of <code>id</code>) has the same number of rows as the number of items in the input file.</p>
 <p>Within the set of rows that share an identical value for <code>id</code>, the left-right sequence of columns (item names) in the input file is represented in the <code>item</code> column, going down the rows. In the <code>response</code> column, the response for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide input table, to a tall (long) data object.</p>
 <p><code>tidyr::pivot_longer()</code> transforms the table. The argument <code>cols = -id</code> identifies the columns that are to be changed from wide to long format. Recall that <code>input_orig</code> contains only the <code>id</code> and the <code>item</code> columns. The <code>-</code> (minus) operator indicates that <code>id</code> is to be <em>excluded</em> from the set of columns to be changed from wide to long. By excluding it in this way, <code>id</code> appears as the left-most column in the transformed table, and is “stretched” down the table, creating new duplicate rows for each value of <code>id</code>, such that there are the same number of rows for each value of <code>id</code> as the number of <code>item</code> columns in the input file.</p>
-<p>The argument <code>names_to = &quot;item&quot;</code> indicates that the keys of the key-value pairs created by <code>pivot_longer()</code> will be stored in a column named <code>item</code>.</p>
+<p>The argument <code>names_to = &quot;item&quot;</code> indicates that the <em>names</em> of the name-value pairs created by <code>pivot_longer()</code> will be stored in a column named <code>item</code>. The argument <code>values_to = &quot;response&quot;</code> indicates that the <em>values</em> of the name-value pairs created by <code>pivot_longer()</code> will be stored in a column named <code>response</code>.</p>
+<p>In the transformed table, the <code>item</code> column contains the <code>item</code> names from the input file, repeated anew for (nested within) each successive set of <code>id</code> rows. The <code>response</code> column contains the item responses for each specific pairing of <code>id</code> and <code>item</code> values.</p>
+<p>To understand how the transformation works, consider the following “before” and “after” examples of a small table containing three cases with responses from a four-item test:</p>
 </div>
-</div>
-<div id="start-here" class="section level2">
-<h2>start here</h2>
-<p>In the transformed table, the <code>item</code> column contains the <code>item</code> names from the input file, repeated anew for (nested within) each successive set of <code>id</code> rows. The <code>response</code> column contains the item responses for each particular pairing of <code>id</code> and <code>item</code> values.</p>
-<p>Here are examples of the table structure before and after this transformation, for three cases of a four-item test:</p>
 <div id="before" class="section level6">
 <h6>Before</h6>
 <table>
@@ -551,20 +548,18 @@ NA_count</code></pre>
   pivot_longer(cols = -id,
                names_to = &quot;item&quot;,
                values_to = &quot;response&quot;) %&gt;%</code></pre>
-<p>In the next snippet, <code>dplyr::group_by()</code> collects the rows with identical values on the person ID variable, so they can retain the “single row” structure of the input table and be summarized in later procedures. <code>dplyr::arrange()</code> sorts the rows by values of the person ID variable.</p>
-<p>Within these two <code>dplyr</code> functions, the person ID variable is named by the expression <code>names(input_orig)[1]</code>. <code>base::names()</code> returns a vector of the column names of its argument (a data frame). Recall that in <code>input_orig</code>, the person ID variable is the left-most column, or column position <code>1</code>. In R, you can use single square brackets (e.g., <code>[1]</code>) to subset the column names vector by position.</p>
-<p>Note that <code>names(input_orig)[1]</code> is wrapped in <code>rlang::sym()</code> (preceded by the <code>!!</code> operator). <code>sym()</code> forces evaluation of its argument as a name, instead of as a string. This is necessary because <code>dplyr</code> verbs automatically quote their inputs, and we need R to see <code>names(input_orig)[1]</code> as the unquoted name of the person ID variable, not as a quoted string.</p>
+</div>
+</div>
+<div id="start-here---no-as.factor" class="section level2">
+<h2>START HERE - NO as.factor()</h2>
 <p><code>dplyr::mutate()</code> modifies the <code>item</code> column in place, extracting the numeric portion of the value of <code>item</code> using <code>stringr::str_sub()</code>, and coercing it to a factor by wrapping the expression in <code>base::as.factor()</code>.</p>
-<pre class="r"><code>               names_to = &quot;item&quot;,
-               values_to = &quot;response&quot;) %&gt;%
-  mutate(across(c(item), ~ as.factor(str_sub(item, 2, 4))))</code></pre>
+<pre class="r"><code>  mutate(across(c(item), ~ as.factor(str_sub(item, 2, 4))))</code></pre>
 <p>Write the input file for BLIMP, stripping the column names <code>col_names = F</code> as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder (if it is not, a file path must be specified on the BLIMP <code>DATA</code> command).</p>
 <pre class="r"><code>write_csv(input_tall,
           here(
             str_c(file_name, &#39;-BLIMP-input.csv&#39;)
             ),</code></pre>
 <p><br></p>
-</div>
 <div id="run-blimp-script-on-prepped-data" class="section level3">
 <h3>Run BLIMP script on prepped data</h3>
 <p>After processing in R, the BLIMP input file has the following structure:</p>
