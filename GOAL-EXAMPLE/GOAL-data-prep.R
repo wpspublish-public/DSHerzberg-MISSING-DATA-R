@@ -12,7 +12,7 @@ NA_count
 
 input_orig[is.na(input_orig)] <- 999
 
-input_tall1 <- input_orig %>%
+input_tall <- input_orig %>%
   pivot_longer(cols = -id,
                names_to = "item",
                values_to = "response") %>%
