@@ -1,0 +1,14 @@
+DATA: TOD.DATA.3.5.20_forBLIMP7.14.20-BLIMP-input.csv;
+VARIABLES: id itemnum response;
+ORDINAL: response;
+# NOMINAL: itemnum;
+# FIXED: itemnum;
+CLUSTERID: id;
+MISSING: 999;
+MODEL: response ~ ;
+SEED: 90291;
+BURN: 4000;
+ITERATIONS: 1;
+#OPTIONS: psr;
+#CHAINS: 4 processors 4;
+SAVE: separate = TOD-impute*.csv;
