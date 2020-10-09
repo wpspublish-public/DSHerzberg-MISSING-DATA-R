@@ -620,13 +620,39 @@ SAVE: separate = BLIMP-output*.csv;</code></pre>
 <div id="comments" class="section level6">
 <h6>COMMENTS</h6>
 <p>In order to run as written, the <code>DATA</code> command must name a file located in the same folder/directory as the BLIMP script. If the input file is located elsewhere, a file path must be specified on <code>DATA</code>. Because the input date file has no column names, the <code>VARIABLES</code> command is used to name the three columns in the input file: <code>id</code>, <code>itemnum</code>, <code>response</code>. The number of names on the <code>VARIABLES</code> line must be identical to the number of columns in the input file.</p>
+<pre class="r"><code>DATA: BLIMP-input.csv;
+VARIABLES: id itemnum response;</code></pre>
 <p><code>ORDINAL</code> and <code>NOMINAL</code> are used to designate ordered and non-ordered categorical variables. Here, <code>response</code> is listed on the <code>ORDINAL</code> line. In the input data file, <code>response</code> refers to a 1-2-3-4 item response format; i.e., ordered categories representing increasing frequency of a behavior. On the <code>NOMINAL</code> line, <code>itemnum</code> represents a non-ordered categorical variable. Variables on the <code>NOMINAL</code> line are automatically recoded into dummy codes at imputation.</p>
+<pre class="r"><code>ORDINAL: response;
+NOMINAL: itemnum;</code></pre>
 <p><code>FIXED</code> is used to designate variables that will not have their means and variances estimated during computation. Fixing variables in this way increases computational efficiency. In this example, the means and variances of the nominal item number variable are not of substantive interest; thus, there is no reason to estimate these parameters.</p>
-<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, name-value pairs of <code>itemnum</code> and <code>response</code> are nested within each value of <code>id</code>.</p>
-<p><code>MISSING</code> identifies the missing data code (<code>999</code> was coded in the input file by the R script). <code>MODEL</code> specifies the regression model that will be used for imputation. On this <code>MODEL</code> line, <code>response</code> is regressed on the dummy-coded item-number variable (dummy codes were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
+<p><code>CLUSTERID</code> designates a multilevel (nested) design. In this example, on the input file, name-value pairs of <code>itemnum</code> and <code>response</code> are nested within each value of <code>id</code>. <code>MISSING</code> identifies the missing data code (<code>999</code> was coded in the input file by the R script).</p>
+<pre class="r"><code>FIXED: itemnum;
+CLUSTERID: id;
+MISSING: 999;</code></pre>
+<p><code>MODEL</code> specifies the regression model that will be used for imputation. On this <code>MODEL</code> line, <code>response</code> is regressed on the dummy-coded item-number variable (dummy codes were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
+<p>More specifically, the model being estimated is a two-level regression model, in which items are nested within persons. <code>itemnum</code> is a fixed level-1 predictor of the level-2 variable, <code>response</code>, and the <code>itemnum</code> variable itself is in fact a proxy for item difficulty (in Rasch terms). If there are <em>k</em> items in the input file, BLIMP creates <em>k-1</em> dummy code variables to represent the items.</p>
+<p>BLIMP estimates a regression model that can be specified as follows:</p>
+<p>Y<sub><em>ip</em></sub> = {B<sub><em>0</em></sub> + B<sub><em>1</em></sub>(D<sub><em>1ip</em></sub>) + … + B<sub><em>k-1</em></sub>(D<sub><em>k-1ip</em></sub>)} + U<sub><em>p</em></sub> + E<sub><em>ip</em></sub></p>
+<p>The expression within the curly braces <code>{}</code> is the <em>fixed</em> component of the model, and the rest of the terms constitute the <em>random</em> component of the model. In addition:</p>
+<ul>
+<li>Y<sub><em>ip</em></sub>: predicted response to item <em>i</em> by person <em>p</em></li>
+<li>B<sub><em>0</em></sub>: fixed intercept, which BLIMP sets to the mean score of item 1 across persons</li>
+<li>B<sub><em>1</em></sub> … B<sub><em>k-1</em></sub>: fixed slopes (one for each of the <em>k-1</em> dummy variables), which BLIMP sets to the difference between the mean score of item 1 (i.e., B<sub><em>0</em></sub>) and the mean score of the item represented by a specific dummy code variable (e.g., B<sub><em>5</em></sub> = mean(item 6) - mean(item 1)). These slopes capture item difficulty.</li>
+<li>D<sub><em>1ip</em></sub> … D<sub><em>k-1ip</em></sub>: dummy code variables (fixed predictors in the model)</li>
+<li>U<sub><em>p</em></sub>: random intercept term that captures the influence of person ability on Y<sub><em>ip</em></sub>, above and beyond the variance explained by item difficulty (i.e., the fixed component of the regression model)</li>
+<li>E<sub><em>ip</em></sub>: random error at the level of individual item response values</li>
+</ul>
+<p>It is important to note that in this model, items can vary in difficulty relative to each other, but not across persons. This captures the meaning of a fixed slope. For example, the values of slopes B<sub><em>2</em></sub> and B<sub><em>5</em></sub> can differ, which reflects real differences in difficulty between the items to which these slopes refer. But the values of B<sub><em>2</em></sub> and B<sub><em>5</em></sub> do not vary across persons, just as item difficulty is expected to be stable for persons of varying ability.</p>
+<pre class="r"><code>MODEL: response ~ itemnum;</code></pre>
 <p><code>SEED</code> sets BLIMP’s random-number generator so that the final output is identical each time the script is run. <code>BURN</code> specifies the number of iterations that are run prior to saving the first imputed data set. As described above, <code>BURN</code> is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.</p>
 <p><code>ITERATIONS</code> controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, <code>ITERATIONS</code> is set to 1. If the project required regression parameters as explicit output, <code>ITERATIONS</code> would be set to at least 1000 to ensure stable estimates.</p>
+<pre class="r"><code>SEED: 90291;
+BURN: 2000; 
+ITERATIONS: 1;</code></pre>
 <p><code>OPTIONS</code> and <code>SAVE</code> are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, <code>SAVE</code> is toggled off, and <code>OPTIONS</code> is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, <code>OPTIONS</code> is toggled off, and <code>SAVE</code> is run to save the imputed data set. The <code>separate</code> argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file). The file name on <code>SAVE</code> requires an <code>*</code>, which allows BLIMP to append numerical suffixes on multiple imputed data files. (<code>*</code> is always used, even in this example, which yields only a single imputed data set)</p>
+<pre class="r"><code>OPTIONS: psr;
+SAVE: separate = BLIMP-output*.csv;</code></pre>
 <p><br></p>
 </div>
 </div>

@@ -193,26 +193,45 @@ SAVE: separate = BLIMP-output*.csv;
 
 ###### COMMENTS
 In order to run as written, the `DATA` command must name a file located in the same folder/directory as the BLIMP script. If the input file is located elsewhere, a file path must be specified on `DATA`. Because the input date file has no column names, the `VARIABLES` command is used to name the three columns in the input file: `id`, `itemnum`, `response`. The number of names on the `VARIABLES` line must be identical to the number of columns in the input file.
-```{r BLIMP_MF, echo=1:2, eval=FALSE}
+```{r BLIMP_example, echo=1:2, eval=FALSE}
 ```
 `ORDINAL` and `NOMINAL` are used to designate ordered and non-ordered categorical variables. Here, `response` is listed on the `ORDINAL` line. In the input data file, `response` refers to a 1-2-3-4 item response format; i.e., ordered categories representing increasing frequency of a behavior. On the `NOMINAL` line, `itemnum` represents a non-ordered categorical variable. Variables on the `NOMINAL` line are automatically recoded into dummy codes at imputation.
-```{r BLIMP_MF, echo=3:4, eval=FALSE}
+```{r BLIMP_example, echo=3:4, eval=FALSE}
 ```
 `FIXED` is used to designate variables that will not have their means and variances estimated during computation. Fixing variables in this way increases computational efficiency. In this example, the means and variances of the nominal item number variable are not of substantive interest; thus, there is no reason to estimate these parameters. 
 
-`CLUSTERID` designates a multilevel (nested) design. In this example, on the input file, name-value pairs of `itemnum` and `response` are nested within each value of `id`.
-```{r BLIMP_MF, echo=5:6, eval=FALSE}
+`CLUSTERID` designates a multilevel (nested) design. In this example, on the input file, name-value pairs of `itemnum` and `response` are nested within each value of `id`. `MISSING` identifies the missing data code (`999` was coded in the input file by the R script). 
+```{r BLIMP_example, echo=5:7, eval=FALSE}
 ```
-`MISSING` identifies the missing data code (`999` was coded in the input file by the R script). `MODEL` specifies the regression model that will be used for imputation. On this `MODEL` line, `response` is regressed on the dummy-coded item-number variable (dummy codes were created by listing `itemnum` on the `NOMINAL` command line). 
-```{r BLIMP_MF, echo=7:8, eval=FALSE}
+`MODEL` specifies the regression model that will be used for imputation. On this `MODEL` line, `response` is regressed on the dummy-coded item-number variable (dummy codes were created by listing `itemnum` on the `NOMINAL` command line). 
+
+More specifically, the model being estimated is a two-level regression model, in which items are nested within persons. `itemnum` is a fixed level-1 predictor of the level-2 variable, `response`, and the `itemnum` variable itself is in fact a proxy for item difficulty (in Rasch terms). If there are _k_ items in the input file, BLIMP creates _k-1_ dummy code variables to represent the items.
+
+BLIMP estimates a regression model that can be specified as follows:
+
+Y~_ip_~ = {B~_0_~ + B~_1_~(D~_1ip_~) + … + B~_k-1_~(D~_k-1ip_~)} + U~_p_~ + E~_ip_~
+
+The expression within the curly braces `{}` is the _fixed_ component of the model, and the rest of the terms constitute the _random_ component of the model. In addition:
+
+ * Y~_ip_~: predicted response to item _i_ by person _p_
+ * B~_0_~: fixed intercept, which BLIMP sets to the mean score of item 1 across persons
+ * B~_1_~ ... B~_k-1_~: fixed slopes (one for each of the _k-1_ dummy variables), which BLIMP sets to the difference between the mean score of item 1 (i.e., B~_0_~) and the mean score of the item represented by a specific dummy code variable (e.g., B~_5_~ = mean(item 6) - mean(item 1)). These slopes capture item difficulty.
+ * D~_1ip_~ ... D~_k-1ip_~: dummy code variables (fixed predictors in the model)
+ * U~_p_~: random intercept term that captures the influence of person ability on Y~_ip_~, above and beyond the variance explained by item difficulty (i.e., the fixed component of the regression model)
+ * E~_ip_~: random error at the level of individual item response values
+ 
+ It is important to note that in this model, items can vary in difficulty relative to each other, but not across persons. This captures the meaning of a fixed slope. For example, the values of slopes B~_2_~ and B~_5_~ can differ, which reflects real differences in difficulty between the items to which these slopes refer. But the values of B~_2_~ and B~_5_~ do not vary across persons, just as item difficulty is expected to be stable for persons of varying ability.
+ 
+
+```{r BLIMP_example, echo=8, eval=FALSE}
 ```
 `SEED` sets BLIMP's random-number generator so that the final output is identical each time the script is run. `BURN` specifies the number of iterations that are run prior to saving the first imputed data set. As described above, `BURN` is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.
 
 `ITERATIONS` controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, `ITERATIONS` is set to 1. If the project required regression parameters as explicit output, `ITERATIONS` would be set to at least 1000 to ensure stable estimates.
-```{r BLIMP_MF, echo=9:11, eval=FALSE}
+```{r BLIMP_example, echo=9:11, eval=FALSE}
 ```
 `OPTIONS` and `SAVE` are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, `SAVE` is toggled off, and `OPTIONS` is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, `OPTIONS` is toggled off, and `SAVE` is run to save the imputed data set. The `separate` argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file). The file name on `SAVE` requires an `*`, which allows BLIMP to append numerical suffixes on multiple imputed data files. (`*` is always used, even in this example, which yields only a single imputed data set)
-```{r BLIMP_MF, echo=12:13, eval=FALSE}
+```{r BLIMP_example, echo=12:13, eval=FALSE}
 ```
 
 <br>
