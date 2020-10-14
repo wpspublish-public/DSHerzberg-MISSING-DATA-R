@@ -566,8 +566,8 @@ NA_count</code></pre>
 <li>The structure is multi-level, in which item-response pairs are nested within each value of Person ID</li>
 <li>No column (variable) names</li>
 </ul>
-<p>In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of linear regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, derives regression equations, imputes missing data by adding random residual terms to the regression equations, and repeats the process using the newly-imputed data set. Iteration continues for a defined interval to allow regression coefficients to stabilize. The stable regression equations are then used to impute a final complete data set that can be used for downstream analysis.</p>
-<p>The model estimation process must include a burn-in phase: a series of iterations that allow the regression parameters to converge (stabilize). The number of iterations required for burn-in varies by data set and is initially unknown. BLIMP supplies a metric for determining convergence: potential scale reduction (PSR). An acceptable burn-in interval is defined as the minimum number of iterations required to yield a PSR value in the range of 1.05-1.10.</p>
+<p>In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of linear regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, derives regression equations, imputes missing data by adding random residual terms to the regression equations, and repeats the process using the newly-imputed data set. Iteration continues for a defined interval to allow regression coefficients to stabilize. The stable regression equations are then used to impute a final complete data set suitable for downstream analysis.</p>
+<p>The imputation process must include a burn-in phase: a series of iterations that allow the regression parameters to converge (stabilize). The number of iterations required for burn-in varies by data set and is initially unknown. BLIMP supplies a metric for determining convergence: potential scale reduction (PSR). An acceptable burn-in interval is defined as the minimum number of iterations required to yield a PSR value in the range of 1.05-1.10.</p>
 <p>The BLIMP imputation process consists of two steps:</p>
 <ol style="list-style-type: decimal">
 <li><p><strong>Diagnostic Run</strong>: Data are processed with an initial burn-in interval of 1000 iterations. The output table of PSR values is examined, and if PSR is not reduced to 1.05-1.10 by the last set of iterations, the data are re-run with a longer burn-in interval (e.g. 2000 iterations). This process continues until an acceptable number of burn-in iterations is determined.</p></li>
@@ -630,22 +630,21 @@ NOMINAL: itemnum;</code></pre>
 <pre class="r"><code>FIXED: itemnum;
 CLUSTERID: id;
 MISSING: 999;</code></pre>
-<p><code>MODEL</code> specifies the regression model that will be used for imputation, using formula notation (the <code>~</code> symbol) instead of an <code>=</code> sign. In choosing a regression model, we consider three factors:</p>
+<p><code>MODEL</code> specifies the regression model that will be used for imputation, using formula notation (the tilde <code>~</code> symbol) instead of an <code>=</code> sign. In choosing a regression model, we consider three factors:</p>
 <ul>
 <li>Rate of “missingness” (percent of cells that are <code>NA</code>);</li>
 <li>Precision of imputed data sets;</li>
 <li>Computational efficiency.</li>
 </ul>
-<p>There is a fundamental tradeoff between precision and efficiency. Because multiple imputation is a computationally intensive process, the use of a precise model with a large data set can can result in an excessively lengthy processing duration.</p>
-<p>The recommended approach is to conduct the initial diagnostic run with the <code>response ~ itemnum</code> model, which yields the most accurate imputed data sets. (Note: accuracy/precision in this context refers to the magnitude of the standard errors of the imputed values). We can then evaluate whether the resulting processing time is acceptable. If it is not, we can switch to another model.</p>
-<p>The three most frequently used regression models are summarized in the next table. These models are documented in detail in the <strong>Appendix</strong>.</p>
+<p>Three commonly used regression models are summarized in the next table. These models are documented in detail in the <strong>Appendix</strong>.</p>
+<p>Note the tradeoff between precision<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> and efficiency. Because multiple imputation is a computationally intensive process, the use of a precise model with a large input data set can can result in an excessively lengthy run.</p>
 <table>
 <thead>
 <tr class="header">
 <th>Model</th>
 <th>Precision</th>
-<th>Computational Efficiency</th>
-<th>Max. missing rate</th>
+<th>Computational efficiency</th>
+<th>Max. allowable missingness</th>
 </tr>
 </thead>
 <tbody>
@@ -669,8 +668,9 @@ MISSING: 999;</code></pre>
 </tr>
 </tbody>
 </table>
+<p>The recommended approach is to conduct the initial diagnostic run with the <code>response ~ itemnum</code> model, which yields the most accurate imputed output. We can then evaluate whether the resulting processing time is acceptable. If it is too lengthy, we can switch to another model.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a></p>
 <p>When the rate of missingness is low (e.g., &lt; 2%), it is relatively “safe” to use the <code>response ~</code> model and trade accuracy for processing efficiency. In contrast, when the rate of missingness is high (e.g., &gt; 20%), we must rely on the most accurate model (<code>response ~ itemnum</code>), and accept a lengthier processing time. The <code>response ~ scalenum | scalenum</code> model balances precision and efficiency, and can be used with missingness rates up to 20%</p>
-<p>On the <code>MODEL</code> line in the example script, we specify the <code>response ~ itemnum</code> model, in which <code>response</code> is regressed on <code>itemnum</code>, the dummy-coded item-number variable (recall that dummy code variables were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
+<p>Returning to the example script, the <code>MODEL</code> line lists the <code>response ~ itemnum</code> model, in which <code>response</code> is regressed on <code>itemnum</code>, the dummy-coded item-number variable (recall that dummy code variables were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
 <pre class="r"><code>MODEL: response ~ itemnum;</code></pre>
 <p><code>SEED</code> sets BLIMP’s random-number generator so that the final output is identical each time the script is run. <code>BURN</code> specifies the number of iterations that are run prior to saving the first imputed data set. As described above, <code>BURN</code> is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.</p>
 <p><code>ITERATIONS</code> controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, <code>ITERATIONS</code> is set to 1. If the project required regression parameters as explicit output, <code>ITERATIONS</code> would be set to at least 1000 to ensure stable estimates.</p>
@@ -870,7 +870,7 @@ write_csv(temp2, here(
 </div>
 <div id="appendix-choosing-a-regression-model" class="section level3">
 <h3>Appendix: Choosing a regression model</h3>
-<p>This section provides a more detailed explanation of three commonly used regression models. As noted previously, the recommended approach is to conduct the initial diagnostic run with the <code>response ~ itemnum</code> model, which yields the most accurate imputed data sets.</p>
+<p>This section provides detailed commentary on the three commonly used regression models. As noted previously, the recommended approach is to conduct the initial diagnostic run with the <code>response ~ itemnum</code> model, which yields the most accurate imputed data sets.</p>
 <p><code>response ~ itemnum</code> is a two-level regression model, in which items are nested within persons. <code>itemnum</code> is a fixed level-1 predictor of the level-2 variable, <code>response</code>, and the <code>itemnum</code> variable itself is in fact an indicator of the latent variable of item difficulty. If there are <em>k</em> items in the input file, BLIMP creates <em>k-1</em> dummy code variables to represent the items.</p>
 <p>The model can be specified as follows:</p>
 <p>Y<sub><em>ip</em></sub> = {B<sub><em>0</em></sub> + B<sub><em>1</em></sub>(D<sub><em>1ip</em></sub>) + … + B<sub><em>k-1</em></sub>(D<sub><em>k-1ip</em></sub>)} + U<sub><em>p</em></sub> + E<sub><em>ip</em></sub></p>
@@ -880,14 +880,14 @@ write_csv(temp2, here(
 <li>B<sub><em>0</em></sub>: a fixed intercept, which BLIMP sets to the mean score of item 1 across persons;</li>
 <li>B<sub><em>1</em></sub> … B<sub><em>k-1</em></sub>: fixed slopes (one for each of the <em>k-1</em> dummy variables), which BLIMP sets to the difference between the mean score of item 1 (i.e., B<sub><em>0</em></sub>) and the mean score of the item represented by a specific dummy code variable (e.g., B<sub><em>5</em></sub> = mean(item 6) - mean(item 1)). These slopes represent item difficulty.
 <ul>
-<li>Note that because <code>itemnum</code> is a fixed predictor, the parameter being estimated is the item mean. The use of <em>intercept</em> and <em>slope</em> to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line specified by its slope and <em>y</em>-intercept.</li>
+<li>Note that because <code>itemnum</code> is a fixed predictor, the parameter being estimated is the item mean. The use of <em>intercept</em> and <em>slope</em> to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line specified by its <em>y</em>-intercept and slope.</li>
 <li>If <code>itemnum</code> were entered into the model as a <em>random</em> predictor, BLIMP would estimate items means <em>and</em> variances.</li>
 </ul></li>
 <li>D<sub><em>1ip</em></sub> … D<sub><em>k-1ip</em></sub>: dummy code variables (fixed predictors in the model);</li>
 <li>U<sub><em>p</em></sub>: random intercept term that captures the influence of person ability on Y<sub><em>ip</em></sub>, above and beyond the variance explained by item difficulty (i.e., the fixed component of the regression model);</li>
 <li>E<sub><em>ip</em></sub>: random error at the level of individual item scores.</li>
 </ul>
-<p>We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what is meant by a <em>fixed</em> slope. For example, slopes B<sub><em>2</em></sub> and B<sub><em>5</em></sub> can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B<sub><em>2</em></sub> is fixed because it does not vary across persons, just as item difficulty is expected to a be constant among persons of varying ability.</p>
+<p>We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what is meant by a <em>fixed</em> slope. For example, slopes B<sub><em>2</em></sub> and B<sub><em>5</em></sub> can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B<sub><em>2</em></sub> is fixed because it does not vary across persons, just as item difficulty is expected to remain constant amoung encounters with persons of differing abilities.</p>
 <p>More generally:</p>
 <ul>
 <li>A <em>fixed</em> parameter (e.g,. slope or intercept) <em>does not vary</em> across persons.
@@ -899,10 +899,11 @@ write_csv(temp2, here(
 <li>BLIMP estimates the mean <em>and</em> variance of a random parameter.</li>
 </ul></li>
 </ul>
-<p>The <code>response ~ itemnum</code> model yields a high degree of precision in imputed data sets, because it represents the actual state of affairs in which item difficulties are independent of one another. This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., &gt; 20%). However, the <code>response ~ itemnum</code> model is computationally intensive, and may result in unacceptably lengthy processing times, especially when the input data set comprises more than 100 items. In these latter applications, we can choose an alternative regression model that runs more efficiently.</p>
-<p>When the rate of missingness is small (&lt; 2%), we can use the <code>response ~</code> model. This is a <em>null</em> model, so-called because it includes no predictor variables. It is analogous to a factor-analytic model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single value. Thus, this model diverges from the actual state of affairs in which items DO vary in difficulty.</p>
-<p>Instead, the <code>response ~</code> model represents person differences with single factor score that varies across persons, but does not take into account the varying difficulties of items. This leads to larger standard errors in the estimates of missing values (i.e., a decrement in precision). Here we are trading precision for efficiency. When we use the <code>response ~</code> model, BLIMP runs converge quickly, even with vary large data sets.</p>
-<p>With tests that have a subscale structure, we can employ the <code>response ~ scalenum | scalenum</code>, which incorporates subscale score as a random predictor of item score This model is a useful compromise between the more accurate, computationally intensive<code>response ~ itemnum</code> model, and the less accurate, computationally efficient <code>response ~</code> model.</p>
+<p>The <code>response ~ itemnum</code> model yields relatively precise imputed output, because it incorporates more information from the input data file than the less-precise models. Specifically, <code>response ~ itemnum</code> is the only model that takes into account the variance in difficulties between specific items.</p>
+<p>This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., &gt; 20%). However, the <code>response ~ itemnum</code> model is computationally intensive, and may result in unacceptably lengthy processing times, especially when the input data set comprises more than 100 items. In these latter applications, we can choose an alternative regression model that runs more efficiently.</p>
+<p>When the rate of missingness is small (&lt; 2%), we can use the <code>response ~</code> model. This is a <em>null</em> model, so-called because it includes no predictor variables. It is analogous to a factor-analytic model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single value. Thus, this model diverges from the actual state of affairs in which individual items <em>do vary</em> in difficulty.</p>
+<p>Instead, the <code>response ~</code> model estimates person differences without taking into account the information represented by varying item difficulties. This leads to larger standard errors in the regression parameters that determine imputed values (i.e., a decrement in precision). When we use the <code>response ~</code> model, we are deliberately trading precision for efficiency. The <code>response ~</code> model runs quickly, even with very large data sets.</p>
+<p>With tests that have a subscale structure, we can employ the <code>response ~ scalenum | scalenum</code> model, which incorporates subscale score as a random predictor of item score This model is a useful compromise between the more accurate, computationally intensive<code>response ~ itemnum</code> model, and the less accurate, computationally efficient <code>response ~</code> model.</p>
 <p>To use the <code>response ~ scalenum | scalenum</code> model, we need to code the subscale structure into the BLIMP input file. Here is an example of R code for transforming a wide-format data object into a long-format object suitable for BLIMP input. This example includes calls of <code>mutate()</code> and <code>case_when()</code> that create an integer <code>scale</code> variable to code item-to-subscale mapping.</p>
 <pre><code>input_long &lt;- input_orig %&gt;%
   pivot_longer(cols = -ID,
@@ -955,10 +956,19 @@ MODEL: response ~ scalenum | scalenum;</code></pre>
 <li>D<sub><em>kp</em></sub> … D<sub><em>k-1ip</em></sub>: dummy code variables;</li>
 <li>E<sub><em>ip</em></sub>: random error at the level of individual item scores.</li>
 </ul>
-<p>Note the absence of curly braces <code>{}</code>. Because <code>scalenum</code> is a random predictor, the resulting regression equation lacks a fixed component. As noted above, each term in the equation is made random by the inclusion of the U term that denotes person-specific ability.</p>
+<p>Note the absence of curly braces <code>{}</code>. Because <code>scalenum</code> is a random predictor, the resulting regression equation lacks a fixed component. As noted above, each term in the equation is made random by the inclusion of a U term that denotes person-specific ability.</p>
 <p>The <code>response ~ scalenum | scalenum</code> model is less precise than the <code>response ~ itemnum</code> model, simply because the former does not include <code>itemnum</code> as predictor. As a result, it does not directly incorporate variance due to item difficulty into the estimate of Y<sub><em>ip</em></sub>.</p>
 <p>However, we can think of <code>scalenum</code> as a proxy for item difficulty. Subscale scores represent aggregate measures of the difficulties of their component items. By entering <code>scalenum</code> as a random predictor, we allow between-person variance in subscale scores to contribute to the estimate of Y<sub><em>ip</em></sub>. Thus, variance in item difficulty is incorporated indirectly, through the more coarsed-grained proxy of subscale score.</p>
 <p>The<code>response ~ scalenum | scalenum</code> model is thus more precise than the <code>response ~</code>, which includes neither item difficulties nor subscales scores as predictors of Y<sub><em>ip</em></sub>.</p>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p><em>Precision</em> (or <em>accuracy</em>) in this context refer to the magnitude of the standard errors of the regression parameters that are used to estimate the imputed values.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>The natural question at this point is, “what constitutes a ‘large’ data set and an ‘excessively lengthy’ processing duration?” Unsurprisingly, the answer is, “it depends”. As an example, we processed an input data set with about 550 columns (items) and about 1600 rows (persons), with &lt; 2% missingness. We conducted a diagnostic run using the <code>response ~ itemnum</code> model with <code>BURN</code> set to 5000 iterations. We ran this analysis on a dedicated Windows CPU, enhanced with multiple processors and extra memory. The run lasted more than 7 days.</p>
+<p>Because this job ran on a computer dedicated to BLIMP, it did not interfere with workflow on other machines. The analysis ran off-line, while other R&amp;D work continued uninterrupted and unburdened by BLIMP’s gargantuan processing demands. Thus, when project timetables alow for lengthy processing durations, we can use the most accurate imputation model, even on a mammoth data set.</p>
+<p>If we need quicker results, and the rate of missingness is lower, we can use more efficient models. When we run the same large input file with the <code>response ~</code> model, the analysis converges in less than an hour. Because the rate of missingness is &lt; 2%, we can proceed safely with the latter model.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+</ol>
 </div>
 
 

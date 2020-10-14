@@ -129,9 +129,9 @@ After processing in R, the BLIMP input file has the following structure:
 * The structure is multi-level, in which item-response pairs are nested within each value of Person ID
 * No column (variable) names
 
-In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of linear regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, derives regression equations, imputes missing data by adding random residual terms to the regression equations, and repeats the process using the newly-imputed data set. Iteration continues for a defined interval to allow regression coefficients to stabilize. The stable regression equations are then used to impute a final complete data set that can be used for downstream analysis.
+In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of linear regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, derives regression equations, imputes missing data by adding random residual terms to the regression equations, and repeats the process using the newly-imputed data set. Iteration continues for a defined interval to allow regression coefficients to stabilize. The stable regression equations are then used to impute a final complete data set suitable for downstream analysis.
 
-The model estimation process must include a burn-in phase: a series of iterations that allow the regression parameters to converge (stabilize). The number of iterations required for burn-in varies by data set and is initially unknown. BLIMP supplies a metric for determining convergence: potential scale reduction (PSR). An acceptable burn-in interval is defined as the minimum number of iterations required to yield a PSR value in the range of 1.05-1.10.
+The imputation process must include a burn-in phase: a series of iterations that allow the regression parameters to converge (stabilize). The number of iterations required for burn-in varies by data set and is initially unknown. BLIMP supplies a metric for determining convergence: potential scale reduction (PSR). An acceptable burn-in interval is defined as the minimum number of iterations required to yield a PSR value in the range of 1.05-1.10.
 
 The BLIMP imputation process consists of two steps:
 
@@ -203,27 +203,33 @@ In order to run as written, the `DATA` command must name a file located in the s
 `CLUSTERID` designates a multilevel (nested) design. In this example, on the input file, name-value pairs of `itemnum` and `response` are nested within each value of `id`. `MISSING` identifies the missing data code (`999` was coded in the input file by the R script). 
 ```{r BLIMP_example, echo=5:7, eval=FALSE}
 ```
-`MODEL` specifies the regression model that will be used for imputation, using formula notation (the `~` symbol) instead of an `=` sign. In choosing a regression model, we consider three factors:
+`MODEL` specifies the regression model that will be used for imputation, using formula notation (the tilde `~` symbol) instead of an `=` sign. In choosing a regression model, we consider three factors:
 
 * Rate of "missingness" (percent of cells that are `NA`);
 * Precision of imputed data sets;
 * Computational efficiency.
 
-There is a fundamental tradeoff between precision and efficiency. Because multiple imputation is a computationally intensive process, the use of a precise model with a large data set can can result in an excessively lengthy processing duration.
+Three commonly used regression models are summarized in the next table. These models are documented in detail in the __Appendix__.
 
-The recommended approach is to conduct the initial diagnostic run with the `response ~ itemnum` model, which yields the most accurate imputed data sets. (Note: accuracy/precision in this context refers to the magnitude of the standard errors of the imputed values). We can then evaluate whether the resulting processing time is acceptable. If it is not, we can switch to another model.
+Note the tradeoff between precision^[_Precision_ (or _accuracy_) in this context refer to the magnitude of the standard errors of the regression parameters that are used to estimate the imputed values.] and efficiency. Because multiple imputation is a computationally intensive process, the use of a precise model with a large input data set can can result in an excessively lengthy run. 
 
-The three most frequently used regression models are summarized in the next table. These models are documented in detail in the __Appendix__.
-
-| Model                              | Precision  | Computational Efficiency | Max. missing rate
+| Model                              | Precision  | Computational efficiency | Max. allowable missingness
 | ---------------------------------- | ---------- | ------------------------ | -----------------
 | `response ~`                       | Good       | High                     | 2%
 | `response ~ scalenum | scalenum`   | Better     | Intermediate             | 20%
 | `response ~ itemnum`               | Best       | Low                      | No formal limit
 
+The recommended approach is to conduct the initial diagnostic run with the `response ~ itemnum` model, which yields the most accurate imputed output. We can then evaluate whether the resulting processing time is acceptable. If it is too lengthy, we can switch to another model.[^longnote]
+
+[^longnote]: The natural question at this point is, "what constitutes a 'large' data set and an 'excessively lengthy' processing duration?" Unsurprisingly, the answer is, "it depends". As an example, we processed an input data set with about 550 columns (items) and about 1600 rows (persons), with < 2% missingness. We conducted a diagnostic run using the `response ~ itemnum` model with `BURN` set to 5000 iterations. We ran this analysis on a dedicated Windows CPU, enhanced with multiple processors and extra memory. The run lasted more than 7 days.
+
+     Because this job ran on a computer dedicated to BLIMP, it did not interfere with workflow on other machines. The analysis ran off-line, while other R&D work continued uninterrupted and unburdened by BLIMP's gargantuan processing demands. Thus, when project timetables alow for lengthy processing durations, we can use the most accurate imputation model, even on a mammoth data set.
+  
+    If we need quicker results, and the rate of missingness is lower, we can use more efficient models. When we run the same large input file with the `response ~` model, the analysis converges in less than an hour. Because the rate of missingness is < 2%, we can proceed safely with the latter model.
+
 When the rate of missingness is low (e.g., < 2%), it is relatively "safe" to use the `response ~` model and trade accuracy for processing efficiency. In contrast, when the rate of missingness is high (e.g., > 20%), we must rely on the most accurate model (`response ~ itemnum`), and accept a lengthier processing time. The `response ~ scalenum | scalenum` model balances precision and efficiency, and can be used with missingness rates up to 20%
 
-On the `MODEL` line in the example script, we specify the `response ~ itemnum` model, in which `response` is regressed on `itemnum`, the dummy-coded item-number variable (recall that dummy code variables were created by listing `itemnum` on the `NOMINAL` command line). 
+Returning to the example script, the `MODEL` line lists the `response ~ itemnum` model, in which `response` is regressed on `itemnum`, the dummy-coded item-number variable (recall that dummy code variables were created by listing `itemnum` on the `NOMINAL` command line). 
 ```{r BLIMP_example, echo=8, eval=FALSE}
 ```
 `SEED` sets BLIMP's random-number generator so that the final output is identical each time the script is run. `BURN` specifies the number of iterations that are run prior to saving the first imputed data set. As described above, `BURN` is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.
@@ -320,7 +326,7 @@ In the remainder of this code chunk, `names()` is used to reapply the column nam
 <br>
 
 ### Appendix: Choosing a regression model
-This section provides a more detailed explanation of three commonly used regression models. As noted previously, the recommended approach is to conduct the initial diagnostic run with the `response ~ itemnum` model, which yields the most accurate imputed data sets.
+This section provides detailed commentary on the three commonly used regression models. As noted previously, the recommended approach is to conduct the initial diagnostic run with the `response ~ itemnum` model, which yields the most accurate imputed data sets.
 
 `response ~ itemnum` is a two-level regression model, in which items are nested within persons. `itemnum` is a fixed level-1 predictor of the level-2 variable, `response`, and the `itemnum` variable itself is in fact an indicator of the latent variable of item difficulty. If there are _k_ items in the input file, BLIMP creates _k-1_ dummy code variables to represent the items.
 
@@ -333,13 +339,13 @@ The expression within the curly braces `{}` is the _fixed_ component of the mode
  * Y~_ip_~: predicted score on item _i_ for person _p_;
  * B~_0_~: a fixed intercept, which BLIMP sets to the mean score of item 1 across persons;
  * B~_1_~ ... B~_k-1_~: fixed slopes (one for each of the _k-1_ dummy variables), which BLIMP sets to the difference between the mean score of item 1 (i.e., B~_0_~) and the mean score of the item represented by a specific dummy code variable (e.g., B~_5_~ = mean(item 6) - mean(item 1)). These slopes represent item difficulty. 
-     + Note that because `itemnum` is a fixed predictor, the parameter being estimated is the item mean. The use of _intercept_ and _slope_ to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line specified by its slope and _y_-intercept.
+     + Note that because `itemnum` is a fixed predictor, the parameter being estimated is the item mean. The use of _intercept_ and _slope_ to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line specified by its _y_-intercept and slope.
      + If `itemnum` were entered into the model as a _random_ predictor, BLIMP would estimate items means _and_ variances. 
  * D~_1ip_~ ... D~_k-1ip_~: dummy code variables (fixed predictors in the model);
  * U~_p_~: random intercept term that captures the influence of person ability on Y~_ip_~, above and beyond the variance explained by item difficulty (i.e., the fixed component of the regression model);
  * E~_ip_~: random error at the level of individual item scores.
  
-We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what is meant by a _fixed_ slope. For example, slopes B~_2_~ and B~_5_~ can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B~_2_~ is fixed because it does not vary across persons, just as item difficulty is expected to a be constant among persons of varying ability.
+We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what is meant by a _fixed_ slope. For example, slopes B~_2_~ and B~_5_~ can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B~_2_~ is fixed because it does not vary across persons, just as item difficulty is expected to remain constant amoung encounters with persons of differing abilities.
 
 More generally:
 
@@ -348,13 +354,15 @@ More generally:
 * A _random_ parameter _may vary_ across persons.
   + BLIMP estimates the mean _and_ variance of a random parameter.
 
-The `response ~ itemnum` model yields a high degree of precision in imputed data sets, because it represents the actual state of affairs in which item difficulties are independent of one another. This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., > 20%). However, the `response ~ itemnum` model is computationally intensive, and may result in unacceptably lengthy processing times, especially when the input data set comprises more than 100 items. In these latter applications, we can choose an alternative regression model that runs more efficiently.
+The `response ~ itemnum` model yields relatively precise imputed output, because it incorporates more information from the input data file than the less-precise models. Specifically, `response ~ itemnum` is the only model that takes into account the variance in difficulties between specific items. 
 
-When the rate of missingness is small (< 2%), we can use the `response ~` model. This is a _null_ model, so-called because it includes no predictor variables. It is analogous to a factor-analytic model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single value. Thus, this model diverges from the actual state of affairs in which items DO vary in difficulty.
+This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., > 20%). However, the `response ~ itemnum` model is computationally intensive, and may result in unacceptably lengthy processing times, especially when the input data set comprises more than 100 items. In these latter applications, we can choose an alternative regression model that runs more efficiently.
 
-Instead, the `response ~` model represents person differences with single factor score that varies across persons, but does not take into account the varying difficulties of items. This leads to larger standard errors in the estimates of missing values (i.e., a decrement in precision). Here we are trading precision for efficiency. When we use the `response ~` model, BLIMP runs converge quickly, even with vary large data sets.
+When the rate of missingness is small (< 2%), we can use the `response ~` model. This is a _null_ model, so-called because it includes no predictor variables. It is analogous to a factor-analytic model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single value. Thus, this model diverges from the actual state of affairs in which individual items _do vary_ in difficulty.
 
-With tests that have a subscale structure, we can employ the `response ~ scalenum | scalenum`, which incorporates subscale score as a random predictor of item score This model is a useful compromise between the more accurate, computationally intensive`response ~ itemnum` model, and the less accurate, computationally efficient `response ~ ` model.
+Instead, the `response ~` model estimates person differences without taking into account the information represented by varying item difficulties. This leads to larger standard errors in the regression parameters that determine imputed values (i.e., a decrement in precision). When we use the `response ~` model, we are deliberately trading precision for efficiency. The `response ~` model runs quickly, even with very large data sets.
+
+With tests that have a subscale structure, we can employ the `response ~ scalenum | scalenum` model, which incorporates subscale score as a random predictor of item score This model is a useful compromise between the more accurate, computationally intensive`response ~ itemnum` model, and the less accurate, computationally efficient `response ~ ` model.
 
 To use the `response ~ scalenum | scalenum` model, we need to code the subscale structure into the BLIMP input file. Here is an example of R code for transforming a wide-format data object into a long-format object suitable for BLIMP input. This example includes calls of `mutate()` and `case_when()` that create an integer `scale` variable to code item-to-subscale mapping.
 
