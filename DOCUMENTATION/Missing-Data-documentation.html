@@ -631,65 +631,46 @@ NOMINAL: itemnum;</code></pre>
 CLUSTERID: id;
 MISSING: 999;</code></pre>
 <p><code>MODEL</code> specifies the regression model that will be used for imputation, using formula notation (the <code>~</code> symbol) instead of an <code>=</code> sign. In choosing a regression model, we consider three factors:</p>
-<ol style="list-style-type: decimal">
+<ul>
 <li>Rate of “missingness” (percent of cells that are <code>NA</code>);</li>
-<li>Accuracy of imputed data sets;</li>
+<li>Precision of imputed data sets;</li>
 <li>Computational efficiency.</li>
-</ol>
-<p>Multiple imputation is a computationally intensive process. Ideally, we want a model that delivers the most precise imputations, but with large datasets this approach can result in unacceptably lengthy processing durations. When the rate of missingness is low (e.g., &lt; 2%), it is relatively “safe” to sacrifice accuracy in exchange for processing efficiency. In contrast, when the rate of missingness is (e.g., &gt; 20%), we must rely on the most accurate model, and accept the tradeoff in processing time.</p>
-<p>Here are recommended regression models to use with three levels of missingness:</p>
+</ul>
+<p>There is a fundamental tradeoff between precision and efficiency. Because multiple imputation is a computationally intensive process, the use of a precise model with a large data set can can result in an excessively lengthy processing duration.</p>
+<p>The recommended approach is to conduct the initial diagnostic run with the <code>response ~ itemnum</code> model, which yields the most accurate imputed data sets. (Note: accuracy/precision in this context refers to the magnitude of the standard errors of the imputed values). We can then evaluate whether the resulting processing time is acceptable. If it is not, we can switch to another model.</p>
+<p>The three most frequently used regression models are summarized in the next table. These models are documented in detail in the <strong>Appendix</strong>.</p>
 <table>
 <thead>
 <tr class="header">
-<th>Rate of missingness</th>
-<th>Recommended model</th>
+<th>Model</th>
+<th>Precision</th>
+<th>Computational Efficiency</th>
+<th>Max. missing rate</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>&lt; 2%</td>
 <td><code>response ~</code></td>
+<td>Good</td>
+<td>High</td>
+<td>2%</td>
 </tr>
 <tr class="even">
-<td>2-20%</td>
 <td><code>response ~ scalenum | scalenum</code></td>
+<td>Better</td>
+<td>Intermediate</td>
+<td>20%</td>
 </tr>
 <tr class="odd">
-<td>&gt; 20%</td>
 <td><code>response ~ itemnum</code></td>
+<td>Best</td>
+<td>Low</td>
+<td>No formal limit</td>
 </tr>
 </tbody>
 </table>
-<p>On the <code>MODEL</code> line in the example script, <code>response</code> is regressed on <code>itemnum</code>, the dummy-coded item-number variable (recall that dummy code variables were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
-<p>More specifically, the model being estimated is a two-level regression model, in which items are nested within persons. <code>itemnum</code> is a fixed level-1 predictor of the level-2 variable, <code>response</code>, and the <code>itemnum</code> variable itself is in fact an indicator of the latent variable of item difficulty. If there are <em>k</em> items in the input file, BLIMP creates <em>k-1</em> dummy code variables to represent the items.</p>
-<p>The model can be specified as follows:</p>
-<p>Y<sub><em>ip</em></sub> = {B<sub><em>0</em></sub> + B<sub><em>1</em></sub>(D<sub><em>1ip</em></sub>) + … + B<sub><em>k-1</em></sub>(D<sub><em>k-1ip</em></sub>)} + U<sub><em>p</em></sub> + E<sub><em>ip</em></sub></p>
-<p>The expression within the curly braces <code>{}</code> is the <em>fixed</em> component of the model, and the rest of the terms constitute the <em>random</em> component of the model. In addition:</p>
-<ul>
-<li>Y<sub><em>ip</em></sub>: predicted score on item <em>i</em> for person <em>p</em>;</li>
-<li>B<sub><em>0</em></sub>: a fixed intercept, which BLIMP sets to the mean score of item 1 across persons;</li>
-<li>B<sub><em>1</em></sub> … B<sub><em>k-1</em></sub>: fixed slopes (one for each of the <em>k-1</em> dummy variables), which BLIMP sets to the difference between the mean score of item 1 (i.e., B<sub><em>0</em></sub>) and the mean score of the item represented by a specific dummy code variable (e.g., B<sub><em>5</em></sub> = mean(item 6) - mean(item 1)). These slopes represent item difficulty.
-<ul>
-<li>Note that because <code>itemnum</code> is a fixed predictor, the parameter being estimated is the item mean. The use of <em>intercept</em> and <em>slope</em> to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line specified by its slope and <em>y</em>-intercept.</li>
-<li>If <code>itemnum</code> were entered into the model as a <em>random</em> predictor, BLIMP would estimate items means <em>and</em> variances.</li>
-</ul></li>
-<li>D<sub><em>1ip</em></sub> … D<sub><em>k-1ip</em></sub>: dummy code variables (fixed predictors in the model);</li>
-<li>U<sub><em>p</em></sub>: random intercept term that captures the influence of person ability on Y<sub><em>ip</em></sub>, above and beyond the variance explained by item difficulty (i.e., the fixed component of the regression model);</li>
-<li>E<sub><em>ip</em></sub>: random error at the level of individual item scores.</li>
-</ul>
-<p>We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what is meant by a <em>fixed</em> slope. For example, slopes B<sub><em>2</em></sub> and B<sub><em>5</em></sub> can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B<sub><em>2</em></sub> is fixed because it does not vary across persons, just as item difficulty is expected to a be constant among persons of varying ability.</p>
-<p>More generally:</p>
-<ul>
-<li>A <em>fixed</em> parameter (e.g,. slope or intercept) <em>does not vary</em> across persons.
-<ul>
-<li>BLIMP estimates <em>only the mean</em> of a fixed parameter.</li>
-</ul></li>
-<li>A <em>random</em> parameter <em>may vary</em> across persons.
-<ul>
-<li>BLIMP estimates the mean <em>and</em> variance of a random parameter.</li>
-</ul></li>
-</ul>
-<p>The <code>response ~ itemnum</code> model yields a high degree of precision in imputed data sets, because it represents the actual state of affairs in which item difficulties are independent of one another. This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., &gt; 20%). However, the <code>response ~ itemnum</code> model is computationally intensive, and may result in unacceptably lengthy processing times, especially when the input data set comprises more than 100 items. In these latter applications, we can use alternative regression models that run more efficiently (see appendix).</p>
+<p>When the rate of missingness is low (e.g., &lt; 2%), it is relatively “safe” to use the <code>response ~</code> model and trade accuracy for processing efficiency. In contrast, when the rate of missingness is high (e.g., &gt; 20%), we must rely on the most accurate model (<code>response ~ itemnum</code>), and accept a lengthier processing time. The <code>response ~ scalenum | scalenum</code> model balances precision and efficiency, and can be used with missingness rates up to 20%</p>
+<p>On the <code>MODEL</code> line in the example script, we specify the <code>response ~ itemnum</code> model, in which <code>response</code> is regressed on <code>itemnum</code>, the dummy-coded item-number variable (recall that dummy code variables were created by listing <code>itemnum</code> on the <code>NOMINAL</code> command line).</p>
 <pre class="r"><code>MODEL: response ~ itemnum;</code></pre>
 <p><code>SEED</code> sets BLIMP’s random-number generator so that the final output is identical each time the script is run. <code>BURN</code> specifies the number of iterations that are run prior to saving the first imputed data set. As described above, <code>BURN</code> is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.</p>
 <p><code>ITERATIONS</code> controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, <code>ITERATIONS</code> is set to 1. If the project required regression parameters as explicit output, <code>ITERATIONS</code> would be set to at least 1000 to ensure stable estimates.</p>
@@ -887,12 +868,42 @@ write_csv(temp2, here(
 <p><br></p>
 </div>
 </div>
-<div id="appendix-alternate-regression-models" class="section level3">
-<h3>Appendix: Alternate regression models</h3>
-<p>As noted above, we prefer the <code>response ~ itemnum</code> model for its accuracy, but with some larger data sets, it may lead to unacceptably length processing times.</p>
-<p>When the rate of missingness is small (&lt; 2%), we can use the <code>response ~</code> model. This is a <em>null</em> model, so called because it includes no predictor variables. It is analogous to a factor-analysis model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single value. Thus the actual state of affairs in which items vary in difficulty is not represented in this model. Instead, the model represents person differences by the single factor score that varies across persons, but not across items. With this model, BLIMP runs will converge quickly, even with vary large data sets.</p>
-<p>With tests that have a subscale structure, we can employ a model that represents subscale score as a random predictor of item response. This model is a useful compromise between the more accurate, computationally intensive<code>response ~ itemnum</code> model, and the less accurate, computationally efficient <code>response ~</code> model.</p>
-<p>Here is an example of R code for transforming a wide-format input file into a long-format data object suitable for BLIMP input. This example includes calls of <code>mutate()</code> and <code>case_when()</code> that create an integer <code>scale</code> variable to code item-to-subscale mapping.</p>
+<div id="appendix-choosing-a-regression-model" class="section level3">
+<h3>Appendix: Choosing a regression model</h3>
+<p>This section provides a more detailed explanation of three commonly used regression models. As noted previously, the recommended approach is to conduct the initial diagnostic run with the <code>response ~ itemnum</code> model, which yields the most accurate imputed data sets.</p>
+<p><code>response ~ itemnum</code> is a two-level regression model, in which items are nested within persons. <code>itemnum</code> is a fixed level-1 predictor of the level-2 variable, <code>response</code>, and the <code>itemnum</code> variable itself is in fact an indicator of the latent variable of item difficulty. If there are <em>k</em> items in the input file, BLIMP creates <em>k-1</em> dummy code variables to represent the items.</p>
+<p>The model can be specified as follows:</p>
+<p>Y<sub><em>ip</em></sub> = {B<sub><em>0</em></sub> + B<sub><em>1</em></sub>(D<sub><em>1ip</em></sub>) + … + B<sub><em>k-1</em></sub>(D<sub><em>k-1ip</em></sub>)} + U<sub><em>p</em></sub> + E<sub><em>ip</em></sub></p>
+<p>The expression within the curly braces <code>{}</code> is the <em>fixed</em> component of the model, and the rest of the terms constitute the <em>random</em> component of the model. In addition:</p>
+<ul>
+<li>Y<sub><em>ip</em></sub>: predicted score on item <em>i</em> for person <em>p</em>;</li>
+<li>B<sub><em>0</em></sub>: a fixed intercept, which BLIMP sets to the mean score of item 1 across persons;</li>
+<li>B<sub><em>1</em></sub> … B<sub><em>k-1</em></sub>: fixed slopes (one for each of the <em>k-1</em> dummy variables), which BLIMP sets to the difference between the mean score of item 1 (i.e., B<sub><em>0</em></sub>) and the mean score of the item represented by a specific dummy code variable (e.g., B<sub><em>5</em></sub> = mean(item 6) - mean(item 1)). These slopes represent item difficulty.
+<ul>
+<li>Note that because <code>itemnum</code> is a fixed predictor, the parameter being estimated is the item mean. The use of <em>intercept</em> and <em>slope</em> to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line specified by its slope and <em>y</em>-intercept.</li>
+<li>If <code>itemnum</code> were entered into the model as a <em>random</em> predictor, BLIMP would estimate items means <em>and</em> variances.</li>
+</ul></li>
+<li>D<sub><em>1ip</em></sub> … D<sub><em>k-1ip</em></sub>: dummy code variables (fixed predictors in the model);</li>
+<li>U<sub><em>p</em></sub>: random intercept term that captures the influence of person ability on Y<sub><em>ip</em></sub>, above and beyond the variance explained by item difficulty (i.e., the fixed component of the regression model);</li>
+<li>E<sub><em>ip</em></sub>: random error at the level of individual item scores.</li>
+</ul>
+<p>We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what is meant by a <em>fixed</em> slope. For example, slopes B<sub><em>2</em></sub> and B<sub><em>5</em></sub> can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B<sub><em>2</em></sub> is fixed because it does not vary across persons, just as item difficulty is expected to a be constant among persons of varying ability.</p>
+<p>More generally:</p>
+<ul>
+<li>A <em>fixed</em> parameter (e.g,. slope or intercept) <em>does not vary</em> across persons.
+<ul>
+<li>BLIMP estimates <em>only the mean</em> of a fixed parameter.</li>
+</ul></li>
+<li>A <em>random</em> parameter <em>may vary</em> across persons.
+<ul>
+<li>BLIMP estimates the mean <em>and</em> variance of a random parameter.</li>
+</ul></li>
+</ul>
+<p>The <code>response ~ itemnum</code> model yields a high degree of precision in imputed data sets, because it represents the actual state of affairs in which item difficulties are independent of one another. This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., &gt; 20%). However, the <code>response ~ itemnum</code> model is computationally intensive, and may result in unacceptably lengthy processing times, especially when the input data set comprises more than 100 items. In these latter applications, we can choose an alternative regression model that runs more efficiently.</p>
+<p>When the rate of missingness is small (&lt; 2%), we can use the <code>response ~</code> model. This is a <em>null</em> model, so-called because it includes no predictor variables. It is analogous to a factor-analytic model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single value. Thus, this model diverges from the actual state of affairs in which items DO vary in difficulty.</p>
+<p>Instead, the <code>response ~</code> model represents person differences with single factor score that varies across persons, but does not take into account the varying difficulties of items. This leads to larger standard errors in the estimates of missing values (i.e., a decrement in precision). Here we are trading precision for efficiency. When we use the <code>response ~</code> model, BLIMP runs converge quickly, even with vary large data sets.</p>
+<p>With tests that have a subscale structure, we can employ the <code>response ~ scalenum | scalenum</code>, which incorporates subscale score as a random predictor of item score This model is a useful compromise between the more accurate, computationally intensive<code>response ~ itemnum</code> model, and the less accurate, computationally efficient <code>response ~</code> model.</p>
+<p>To use the <code>response ~ scalenum | scalenum</code> model, we need to code the subscale structure into the BLIMP input file. Here is an example of R code for transforming a wide-format data object into a long-format object suitable for BLIMP input. This example includes calls of <code>mutate()</code> and <code>case_when()</code> that create an integer <code>scale</code> variable to code item-to-subscale mapping.</p>
 <pre><code>input_long &lt;- input_orig %&gt;%
   pivot_longer(cols = -ID,
                names_to = &quot;item&quot;,
@@ -916,8 +927,8 @@ write_csv(temp2, here(
     ), 
     across(item, ~ str_sub(., 2, 4))) %&gt;% 
   relocate(scale, .after = &quot;ID&quot;)</code></pre>
-<p>Recall that in the long data format, items are nested within persons. In the first argument to <code>case_when()</code>, the predicate <code>item %in% item[1:50]</code> returns <code>TRUE</code>, for the first 50 rows of items, within each person. <code>~ 1</code> indicates that these rows will be coded <code>1</code> on <code>scale</code>, to represent their assignment to the first subscale. Analogous arguments assign items to 13 additional subscales, and the coding repeats anew within each set of person rows (i.e., rows with identical values on <code>ID</code>).</p>
-<p>Once subscale assignment is coded in this manner, we can use the <code>response ~  scalenum | scalenum</code> model to incorporate subscale score as a random predictor of item response. Here are select lines from a BLIMP script that includes this model.</p>
+<p>Recall that in the long data format, items are nested within persons. In the first argument to <code>case_when()</code>, the predicate <code>item %in% item[1:50]</code> returns <code>TRUE</code> for the first 50 rows of items, within each person. <code>~ 1</code> indicates that these rows will be coded <code>1</code> on <code>scale</code>, to represent their assignment to the first subscale. Analogous arguments assign items to 13 additional subscales, and the coding repeats anew within each set of person rows (i.e., rows with identical values on <code>ID</code>).</p>
+<p>Once subscale assignment is coded in this manner, the BLIMP input file is ready for for processing with the <code>response ~  scalenum | scalenum</code> model. Here are select lines from a BLIMP script that includes this model.</p>
 <pre><code>VARIABLES: id scalenum itemnum response;
 ORDINAL: response;
 NOMINAL: scalenum;
@@ -925,7 +936,7 @@ FIXED: scalenum;
 CLUSTERID: id;
 MISSING: 999;
 MODEL: response ~ scalenum | scalenum;</code></pre>
-<p>On the <code>MODEL</code> line, we specify that <code>response</code> is regressed on <code>scalenum</code>, and by listing <code>scalenum</code> a second time to the right of the vertical pipe <code>|</code> symbol, we designate it as a random predictor. Note that <code>scalenum</code> (instead of <code>itemnum</code>) is now listed on the <code>NOMINAL</code> and <code>FIXED</code> lines.</p>
+<p>On the <code>MODEL</code> line, <code>response</code> is regressed on <code>scalenum</code>, and by listing <code>scalenum</code> a second time to the right of the vertical pipe <code>|</code> symbol, we designate it as a random predictor. Note that <code>scalenum</code> (instead of <code>itemnum</code>) is now entered on the <code>NOMINAL</code> and <code>FIXED</code> lines.</p>
 <p>In general, for a test with <em>k</em> subscales, the <code>response ~ scalenum | scalenum</code> model is represented as:</p>
 <p>Y<sub><em>ip</em></sub> = (B<sub><em>0</em></sub> + U<sub><em>p</em></sub>) + (B<sub><em>1</em></sub> + U<sub><em>1p</em></sub>)(D<sub><em>1ip</em></sub>) + … + ( B<sub><em>k-1</em></sub> + U<sub><em>k-1p</em></sub>)(D<sub><em>k-1ip</em></sub>) + E<sub><em>ip</em></sub></p>
 <p>Where:</p>
