@@ -236,9 +236,9 @@ The recommended approach is to conduct the initial diagnostic run with the `scor
 
 [^longnote]: The natural question at this point is, "what constitutes a 'large' data set and an 'excessively lengthy' processing duration?" Unsurprisingly, the answer is, "it depends". As an example, we processed an input data set with about 550 columns (items) and about 1600 rows (persons), with < 2% missingness. We conducted a diagnostic run using the `score ~ itemnum` model with `BURN` set to 5000 iterations. We ran this analysis on a dedicated Windows CPU, enhanced with multiple processors and extra memory. The run lasted more than 7 days.
 
-     Because this job ran on a computer dedicated to BLIMP, it did not interfere with workflow on other machines. The analysis ran off-line, while other R&D work continued uninterrupted and unburdened by BLIMP's gargantuan processing demands. Thus, when project timetables alow for lengthy processing durations, we can use the most accurate imputation model, even on a mammoth data set.
+     Because this job ran on a computer dedicated to BLIMP, it did not interfere with workflow on other machines. The analysis ran off-line, while other R&D work continued uninterrupted and unburdened by BLIMP's processing demands. Thus, when project timetables alow for lengthy processing durations, we can use the most accurate imputation model, even on a very lage data set.
   
-    If we need quicker results, and the rate of missingness is lower, we can use more efficient models. When we run the same large input file with the `score ~` model, the analysis converges in less than an hour. Because the rate of missingness is < 2%, we can proceed safely with the latter model.
+    When we need quicker results, and the rate of missingness is lower, more efficient models are available. Running the same large input file with the `score ~` model, we obtained convergence in less than one hour. Because missingness was < 2%, it was appropriate to proceed with the most efficient model.
 
 When the rate of missingness is low (e.g., < 2%), it is relatively "safe" to use the `score ~` model and trade accuracy for processing efficiency. In contrast, when the rate of missingness is high (e.g., > 20%), we must rely on the most accurate model (`score ~ itemnum`), and accept a lengthier processing time. The `score ~ scalenum | scalenum` model balances precision and efficiency, and can be used with missingness rates up to 20%
 
@@ -456,7 +456,7 @@ The `score ~ scalenum | scalenum` model is less precise than the `score ~ itemnu
 
 However, we can think of `scalenum` as a proxy for item difficulty. Subscale scores represent aggregate measures of the difficulties of their component items. By entering `scalenum` as a random predictor, we allow between-person variance in subscale scores to contribute to the estimate of Y~_ip_~. Thus, variance in item difficulty is incorporated indirectly, through the more coarsed-grained proxy of subscale score.
 
-The`score ~ scalenum | scalenum` model is thus more precise than the `score ~ `, which includes neither item difficulties nor subscales scores as predictors of Y~_ip_~.
+In this way, the`score ~ scalenum | scalenum` model is more precise than the `score ~ `, which includes neither item difficulties nor subscales scores as predictors of Y~_ip_~.
 
 It may seem counterintuitive to include `scalenum` on the `FIXED` line, and then to designate it as a random predictor on the `MODEL` line. Recall, however, that the `FIXED` line tells BLIMP to treat certain _variables in the input file_ as constants, rather than estimating their means and variances. On the `MODEL` line, by contrast, we tell BLIMP whether to treat _regression coefficients_ as fixed or random. Thus, the `FIXED` and `MODEL` lines refer to different components of the analysis, and do not conflict with each other, even if the terminology suggests that they might.
 
