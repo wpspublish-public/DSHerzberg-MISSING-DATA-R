@@ -206,7 +206,7 @@ SAVE: separate = BLIMP-output*.csv;
 In order to run this script as written, the `DATA` command must name a file located in the same folder/directory as the script. If the input file is located elsewhere, a file path must be specified on `DATA`. Because the input date file has no column names, the `VARIABLES` command is used to name the three columns in the input file: `id`, `itemnum`, `score`. The number of names on the `VARIABLES` line must be identical to the number of columns in the input file.
 ```{r BLIMP_example, echo=1:2, eval=FALSE}
 ```
-`ORDINAL` and `NOMINAL` are used to designate ordered and non-ordered categorical variables. Here, `score` is listed on the `ORDINAL` line. In the input data file, the values of `score` represent ordered categories of behavior (e.g., 0-1 for fail-pass on a cognitive performance item, or 1-2-3-4 for increasing frequency of a target behavior). On the `NOMINAL` line, `itemnum` represents a non-ordered categorical variable (here, as we shall see, `itemnum` is an an indicator for the latent variable of item difficulty). Variables on the `NOMINAL` line are automatically recoded into a set of dummy code variables at imputation.
+`ORDINAL` and `NOMINAL` are used to designate ordered and non-ordered categorical variables. Here, `score` is listed on the `ORDINAL` line. In the input data file, the values of `score` represent ordered categories of behavior (e.g., 0-1 for fail-pass on a cognitive performance item, or 1-2-3-4 for increasing frequency of a target behavior). On the `NOMINAL` line, `itemnum` represents a non-ordered categorical variable (here, as we shall see, `itemnum` is an indicator for the latent variable of item difficulty). Variables on the `NOMINAL` line are automatically recoded into a set of dummy code variables at imputation.
 ```{r BLIMP_example, echo=3:4, eval=FALSE}
 ```
 `FIXED` is used to designate complete variables (i.e., no missing data) that will be used as predictors in the regression model. In this example, `itemnum` represents item difficulty. Remember, the missing values to be imputed are item scores, not item difficulties. `itemnum` is thus a complete input variable.
@@ -234,7 +234,7 @@ Note the tradeoff between precision^[_Precision_ (or _accuracy_) in this context
 
 The recommended approach is to conduct the initial diagnostic run with the `score ~ itemnum` model, which yields the most accurate imputed output. We can then evaluate whether the resulting processing time is acceptable. If it is too lengthy, we can switch to another model.[^longnote]
 
-[^longnote]: The natural question at this point is, "what constitutes a 'large' data set and an 'excessively lengthy' processing duration?" Unsurprisingly, the answer is, "it depends". As an example, we processed an input data set with about 550 columns (items) and about 1600 rows (persons), with < 2% missingness. We conducted a diagnostic run using the `score ~ itemnum` model with `BURN` set to 5000 iterations. We ran this analysis on a dedicated Windows CPU, enhanced with multiple processors and extra memory. The run lasted more than 7 days.
+[^longnote]: The natural question at this point is, "what constitutes a 'large' data set and an 'excessively lengthy' processing duration?" Unsurprisingly, the answer is, "it depends". As an example, we processed an input data set with about 550 columns (items) and about 1600 rows (persons), with < 2% missingness. We conducted a diagnostic run using the `score ~ itemnum` model with `BURN` set to 5000 iterations. We ran this analysis on a dedicated Windows CPU, enhanced with multiple processors and extra memory. The run lasted more than seven days.
 
      Because this job ran on a computer dedicated to BLIMP, it did not interfere with workflow on other machines. The analysis ran off-line, while other R&D work continued uninterrupted and unburdened by BLIMP's processing demands. Thus, when project timetables alow for lengthy processing durations, we can use the most accurate imputation model, even on a very lage data set.
   
@@ -245,7 +245,7 @@ When the rate of missingness is low (e.g., < 2%), it is relatively "safe" to use
 Returning to the example script, the `MODEL` line specifies the `score ~ itemnum` model, in which `score` is regressed on `itemnum`, the variable representing item difficulty. As noted previously, `itemnum` is recoded into a set of dummy variables by virtue of being listed on the `NOMINAL` command line. 
 ```{r BLIMP_example, echo=8, eval=FALSE}
 ```
-`SEED` sets BLIMP's random-number generator so that the final output is identical each time the script is run. `BURN` specifies the number of iterations that are run prior to saving the first imputed data set. As described above, `BURN` is initially set at 1000 for the diagnostic run, and this value is adjusted as needed to until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.
+`SEED` sets BLIMP's random-number generator so that the final output is identical each time the script is run. `BURN` specifies the number of iterations that are run prior to saving the first imputed data set. As described above, `BURN` is initially set at 1000 for the diagnostic run, and this value is adjusted as needed until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.
 
 `ITERATIONS` controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, `ITERATIONS` is set to 1. If the project required regression parameters as explicit output, `ITERATIONS` would be set to at least 1000 to ensure stable estimates.
 ```{r BLIMP_example, echo=9:11, eval=FALSE}
@@ -369,7 +369,7 @@ More generally:
 
 * A _fixed_ slope _does not vary_ across persons.
 * A _random_ slope _may vary_ across persons.
-  + A random slope is not a constant, but rather is a distributed variable. BLIMP estimates the mean and variance of the distribution of random slopes, and these parameters summarize the extent to which the slopes differs between persons.
+  + A random slope is not a constant, but rather is a distributed variable. BLIMP estimates the mean and variance of the distribution of random slopes, and these parameters summarize the extent to which the slopes differ between persons.
 
 The `score ~ itemnum` model yields relatively precise imputed output, because it incorporates more information from the input data file than the less-precise models. Specifically, `score ~ itemnum` is the only model that takes into account the variance in difficulties between specific items. 
 
