@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 In this method, an input file with missing data is prepped in R and then run through BLIMP, which estimates missing data using multiple imputation and generates an output data set in which all missing cells are replaced with imputed values.
 
-This procedure assumes that data are missing from the input file due to the missing at random (MAR) mechanism. A discussion of missing data theory is beyond the scope of this document, and such knowledge is not needed to use the method described here. Enders (2010) provides a thorough treatment of missing data methods and theory.
+This procedure assumes that data are missing from the input file due to the missing at random (MAR) mechanism.^[The "missing at random" label can be a bit misleading, especially for those who lack a deep understanding of missing data theory. For our purposes, a less-cryptic expansion of MAR is "missing and recoverable".] A discussion of missing data theory is beyond the scope of this document, and such knowledge is not needed to use the method described here. Enders (2010) provides a thorough treatment of missing data methods and theory.
 
 ``` 
 Enders, C. K. (2010). Applied Missing Data Analysis. New York: Guilford. 
