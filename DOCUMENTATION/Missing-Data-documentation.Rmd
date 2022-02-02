@@ -7,15 +7,15 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Overview  
+### Overview
 
 In this method, an input file with missing data is prepped in R and then run through BLIMP, which estimates missing data using multiple imputation and generates an output data set in which all missing cells are replaced with imputed values.
 
-This procedure assumes that data are missing from the input file due to the missing at random (MAR) mechanism.^[The "missing at random" label can be a bit misleading, especially for those who lack a deep understanding of missing data theory. For our purposes, a less-cryptic expansion of MAR is "missing and recoverable".] A discussion of missing data theory is beyond the scope of this document, and such knowledge is not needed to use the method described here. Enders (2010) provides a thorough treatment of missing data methods and theory.
+This procedure assumes that data are missing from the input file due to the missing at random (MAR) mechanism.[^1] A discussion of missing data theory is beyond the scope of this document, and such knowledge is not needed to use the method described here. Enders (2010) provides a thorough treatment of missing data methods and theory.
 
-``` 
-Enders, C. K. (2010). Applied Missing Data Analysis. New York: Guilford. 
-``` 
+[^1]: The "missing at random" label can be a bit misleading, especially for those who lack a deep understanding of missing data theory. For our purposes, a less-cryptic expansion of MAR is "missing and recoverable".
+
+    Enders, C. K. (2010). Applied Missing Data Analysis. New York: Guilford. 
 
 The code assumes a typical RStudio project folder hierarchy, with `INPUT-FILES` and `OUTPUT-FILES` folders at the first level.
 
@@ -25,22 +25,20 @@ Input data should formatted with cases in rows and test items in columns, with a
 
 Here is an example of the first few rows and columns of a properly formatted input file:
 
-```
-    id  i001  i002  i003  i004  i005  i006  i007  i008  i009
-201016     1     1     1     1     1     1     1     1     1
-201017     1     1     1     1     1     1     1     1     1
-201019     1     1     1     1     1     0     1     1     0
-201020     1     1     1     1     1     1     1     1     1
-201021     1     1     1     1     1     1     1     1     1
-```
+        id  i001  i002  i003  i004  i005  i006  i007  i008  i009
+    201016     1     1     1     1     1     1     1     1     1
+    201017     1     1     1     1     1     1     1     1     1
+    201019     1     1     1     1     1     0     1     1     0
+    201020     1     1     1     1     1     1     1     1     1
+    201021     1     1     1     1     1     1     1     1     1
 
 Once data are in this format, run the next block of R code to restructure the input for BLIMP.
 
-Here and throughout, certain token markers are employed to designate user-input values that vary by project:  
+Here and throughout, certain token markers are employed to designate user-input values that vary by project:
 
-* `{TOKEN}`: any value or series of values  
-* `{FILE-PATH}`  
-* `{FILE-NAME}` 
+-   `{TOKEN}`: any value or series of values\
+-   `{FILE-PATH}`\
+-   `{FILE-NAME}`
 
 ###### VALID CODE TO RUN
 
@@ -74,22 +72,29 @@ write_csv(input_tall,
 ```
 
 ###### COMMENTED SNIPPETS
-The snippet below contains one user-programmable input paramater. For the token `{FILE-NAME}`, substitute the _prefix_ of input file name (i.e., the file name stripped of `.csv`). Then use `readr::read_csv()` to read the input file into `input_orig`. `here::here()` holds the file path to input file; within `here()`, `stringr::str_c()` concatenates a sequence of string elements into a single string representing the file path.
+
+The snippet below contains one user-programmable input paramater. For the token `{FILE-NAME}`, substitute the *prefix* of input file name (i.e., the file name stripped of `.csv`). Then use `readr::read_csv()` to read the input file into `input_orig`. `here::here()` holds the file path to input file; within `here()`, `stringr::str_c()` concatenates a sequence of string elements into a single string representing the file path.
+
 ```{r prep_BLIMP_input, echo=4:8, eval=FALSE}
 ```
+
 When data are read into R, missing values are coded `NA` (not available). The next snippet counts the `NA` cells across all items and persons in the input table. `is.na()` returns `TRUE` for each table cell containing `NA`. Because logical `TRUE` is equivalent to a numerical code of `1`, `sum()` returns the count of `NA` across all cells. `NA_count` prints this count to the console.
+
 ```{r prep_BLIMP_input, echo=10:11, eval=FALSE}
 ```
+
 Recode the `NA` in the input to `999`, a missing value code typically used by BLIMP. Assign the value `999` to the subset of cells within `input_orig` for which the predicate (logical) expression `is.na(input_orig)` returns `TRUE`.
+
 ```{r prep_BLIMP_input, echo=13, eval=FALSE}
 ```
-Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and scores (level 1) are nested within each person (level 2). The nested rows contain _name-value pairs_ of items and their associated scores. In the multi-level structure, each person (each unique value of `id`) has the same number of rows as the number of items in the input file. 
+
+Recall that the structure of the input file is a row for each case, and a column for each item. The model to be processed by BLIMP requires a multi-level (nested) structure, in which the items and scores (level 1) are nested within each person (level 2). The nested rows contain *name-value pairs* of items and their associated scores. In the multi-level structure, each person (each unique value of `id`) has the same number of rows as the number of items in the input file.
 
 Within the set of rows that share an identical value for `id`, the left-right sequence of columns (item names) in the input file is represented in the `item` column, going down the rows. In the `score` column, the score for each item appears in the same row as the item name. The following snippet accomplishes this transformation, from a wide input table to a tall (long) data object.
 
-We use `tidyr::pivot_longer()` to reshape the table. The argument `cols = -id` identifies the columns that are to be changed from wide to long format. Recall that `input_orig` contains only the `id` and the `item` columns. The `-` (minus) operator indicates that `id` is to be _excluded_ from the set of columns to be changed from wide to long. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file. 
+We use `tidyr::pivot_longer()` to reshape the table. The argument `cols = -id` identifies the columns that are to be changed from wide to long format. Recall that `input_orig` contains only the `id` and the `item` columns. The `-` (minus) operator indicates that `id` is to be *excluded* from the set of columns to be changed from wide to long. By excluding it in this way, `id` appears as the left-most column in the transformed table, and is "stretched" down the table, creating new duplicate rows for each value of `id`, such that there are the same number of rows for each value of `id` as the number of `item` columns in the input file.
 
-The argument `names_to = "item"` indicates that the _names_ of the name-value pairs created by `pivot_longer()` will be stored in a column named `item`. The argument `values_to = "score"` indicates that the _values_ of the name-value pairs will be stored in a column named `score`.
+The argument `names_to = "item"` indicates that the *names* of the name-value pairs created by `pivot_longer()` will be stored in a column named `item`. The argument `values_to = "score"` indicates that the *values* of the name-value pairs will be stored in a column named `score`.
 
 In the transformed table, the `item` column contains the `item` names from the input file, repeated anew for (nested within) each successive set of `id` rows. The `score` column contains the item scores for each specific pairing of `id` and `item` values.
 
@@ -97,36 +102,39 @@ To understand how the transformation works, consider the following "before" and 
 
 ###### Before
 
-id            | i01           | i02           | i03           | i04
-------------- | ------------- | ------------- | ------------- | -------------
-1001          | 2             | 2             | 3             | 1
-1002          | 4             | 1             | 4             | 2
-1003          | 3             | 2             | 3             | 4
+| id   | i01 | i02 | i03 | i04 |
+|------|-----|-----|-----|-----|
+| 1001 | 2   | 2   | 3   | 1   |
+| 1002 | 4   | 1   | 4   | 2   |
+| 1003 | 3   | 2   | 3   | 4   |
 
 ###### After
 
-id            | item          | score
-------------- | ------------- | -------------
-1001          | i01           | 2
-1001          | i02           | 2
-1001          | i03           | 3
-1001          | i04           | 1
-1002          | i01           | 4
-1002          | i02           | 1
-1002          | i03           | 4
-1002          | i04           | 2
-1003          | i01           | 3
-1003          | i02           | 2
-1003          | i03           | 3
-1003          | i04           | 4
+| id   | item | score |
+|------|------|-------|
+| 1001 | i01  | 2     |
+| 1001 | i02  | 2     |
+| 1001 | i03  | 3     |
+| 1001 | i04  | 1     |
+| 1002 | i01  | 4     |
+| 1002 | i02  | 1     |
+| 1002 | i03  | 4     |
+| 1002 | i04  | 2     |
+| 1003 | i01  | 3     |
+| 1003 | i02  | 2     |
+| 1003 | i03  | 3     |
+| 1003 | i04  | 4     |
 
 ```{r prep_BLIMP_input, echo=15:18, eval=FALSE}
 ```
+
 BLIMP requires the item names in the `item` column to be numbers, not character strings. We can use `dplyr::mutate()` to make this change. Within `mutate()`, we use `across()` to apply a function to a subset of columns. The first argument specifies that `item` is the column to be modified. The second argument uses the formula shorthand `~` to apply `stringr::str_sub()` to the `item` column. The dot shorthand `.` indicates that `str_sub()` will operate on the previously subsetted column, and `2, 4` indicates that `str_sub()` will extract the numerical portion of the item name (that is, the substring within the name starting at position `2` and ending at position `4`).
+
 ```{r prep_BLIMP_input, echo = 19, eval = F}
 ```
-We now use `readr::write_csv` to save the input file for BLIMP as a `.csv`, stripping the column names `col_names = F` as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP
-script must also be located in this folder (if it is not, a file path must be specified on the BLIMP `DATA` command).
+
+We now use `readr::write_csv` to save the input file for BLIMP as a `.csv`, stripping the column names `col_names = F` as required by BLIMP. The input file is written to the top folder of the RStudio project. The BLIMP script must also be located in this folder (if it is not, a file path must be specified on the BLIMP `DATA` command).
+
 ```{r prep_BLIMP_input, echo = 21:26, eval=FALSE}
 ```
 
@@ -136,9 +144,9 @@ script must also be located in this folder (if it is not, a file path must be sp
 
 After processing in R, the BLIMP input file has the following structure:
 
-* Three columns: Person ID, item number, item score
-* Two-level structure, in which item-score pairs are nested within each value of Person ID
-* No column (variable) names
+-   Three columns: Person ID, item number, item score
+-   Two-level structure, in which item-score pairs are nested within each value of Person ID
+-   No column (variable) names
 
 In simple terms, BLIMP accomplishes the imputation of missing values by estimating a series of linear regression models on the input data. The estimation is an iterative process, whereby BLIMP posits model parameters, derives regression equations, imputes missing data by adding random residual terms to the regression equations, and repeats the process using the newly-imputed data set. Iteration continues for a defined interval to allow regression coefficients to stabilize. The stable regression equations are then used to impute a final complete data set suitable for downstream analysis.
 
@@ -146,11 +154,13 @@ The imputation process must include a burn-in phase: a series of iterations that
 
 The BLIMP imputation process consists of two steps:
 
-1. __Diagnostic Run__: Data are processed with an initial burn-in interval of 1000 iterations. The output table of PSR values is examined, and if PSR is not reduced to 1.05-1.10 by the last set of iterations, the data are re-run with a longer burn-in interval (e.g. 2000 iterations).  This process continues until an acceptable number of burn-in iterations is determined.
+1.  **Diagnostic Run**: Data are processed with an initial burn-in interval of 1000 iterations. The output table of PSR values is examined, and if PSR is not reduced to 1.05-1.10 by the last set of iterations, the data are re-run with a longer burn-in interval (e.g. 2000 iterations). This process continues until an acceptable number of burn-in iterations is determined.
 
-2. __Imputation Run__: Data are processed using the burn-in interval determined in Step 1. The saved output data set has all missing scores replaced with imputed values.
+2.  **Imputation Run**: Data are processed using the burn-in interval determined in Step 1. The saved output data set has all missing scores replaced with imputed values.
 
-An identical BLIMP template script can be used for Steps 1 and 2. This template consists of the following commands (some include values and arguments that remain constant for all input data sets):
+An identical BLIMP template script can be used for Steps 1 and 2. This template consists of the following commands (some include values and arguments that remain constant for all input data sets)[^2]:
+
+[^2]: This section has been updated for BLIMP 3.0.55 (January 2022).
 
 ```{r BLIMP-template, eval=FALSE}
 DATA: {FILE-NAME}.csv
@@ -164,94 +174,116 @@ MODEL: {TOKEN}
 SEED: 90291;
 BURN: {TOKEN}
 ITERATIONS:  1;
-OPTIONS: psr;
+CHAINS: 2 processors 2;
+NIMPS: 1;
 SAVE: separate = {FILE-NAME}*.csv;
 ```
 
-Steps 1 and 2 are differentiated by activation/deactivation of the `OPTIONS` and `SAVE` lines (commands can be toggled off by beginning the command line with `#`).
+Steps 1 and 2 are differentiated by activation/deactivation of the `NIMPS` and `SAVE` lines (commands can be toggled off by beginning the command line with `#`).
 
 ###### Step 1: Diagnostic Run
-`OPTIONS` is activated to generate the PSR table. `SAVE` is deactivated because no imputed data set is needed for this step.
-```{r BLIMP-multiFactor-template1, eval=FALSE}
-OPTIONS: psr;
+
+`NIMPS` and `SAVE` are deactivated because no imputed data set is needed for this step.
+
+```{r BLIMP-template1, eval=FALSE}
+# NIMPS: 1;
 # SAVE: separate = {FILE-NAME}*.csv;
 ```
+
 ###### Step 2: Imputation Run
-`OPTIONS` is deactivated because the burn-in interval has been determined by Step 1, so there is no need to view the PSR table. `SAVE` is activated in order to generate an imputed data set with missing values estimated.
-```{r BLIMP-multiFactor-template2, eval=FALSE}
-# OPTIONS: psr;
+
+`NIMPS` is activated to specify how many imputed data sets are desired. `SAVE` is activated in order to generate and write an imputed data set with missing values estimated.
+
+```{r BLIMP-template2, eval=FALSE}
+NIMPS: 1;
 SAVE: separate = {FILE-NAME}*.csv;
 ```
 
 Below is an example BLIMP script based on this template. The example has a typical set of token substitutions. The file names are generic - any suitable names can be substituted. Note that BLIMP scripts are identified by the file suffix `.imp`.
 
 ###### THIS CODE CAN BE RUN IN BLIMP STUDIO
+
 ```{r BLIMP_example, eval=FALSE}
 DATA: BLIMP-input.csv;
-VARIABLES: id itemnum score;
+VARIABLES: id item score;
 ORDINAL: score;
-NOMINAL: itemnum;
-FIXED: itemnum;
+NOMINAL: item;
+FIXED: item;
 CLUSTERID: id;
 MISSING: 999;
-MODEL: score ~ itemnum;
+MODEL: score ~ item;
 SEED: 90291;
 BURN: 2000; 
 ITERATIONS: 1;
-OPTIONS: psr;
+CHAINS: 2 processors 2;
+NIMPS: 1;
 SAVE: separate = BLIMP-output*.csv;
 ```
 
 ###### COMMENTS
-In order to run this script as written, the `DATA` command must name a file located in the same folder/directory as the script. If the input file is located elsewhere, a file path must be specified on `DATA`. Because the input date file has no column names, the `VARIABLES` command is used to name the three columns in the input file: `id`, `itemnum`, `score`. The number of names on the `VARIABLES` line must be identical to the number of columns in the input file.
+
+In order to run this script as written, the `DATA` command must name a file located in the same folder/directory as the script. If the input file is located elsewhere, a file path must be specified on `DATA`. Because the input date file has no column names, the `VARIABLES` command is used to name the three columns in the input file: `id`, `item`, `score`. The number of names on the `VARIABLES` line must be identical to the number of columns in the input file.
+
 ```{r BLIMP_example, echo=1:2, eval=FALSE}
 ```
-`ORDINAL` and `NOMINAL` are used to designate ordered and non-ordered categorical variables. Here, `score` is listed on the `ORDINAL` line. In the input data file, the values of `score` represent ordered categories of behavior (e.g., 0-1 for fail-pass on a cognitive performance item, or 1-2-3-4 for increasing frequency of a target behavior). On the `NOMINAL` line, `itemnum` represents a non-ordered categorical variable (here, as we shall see, `itemnum` is an indicator for the latent variable of item difficulty). Variables on the `NOMINAL` line are automatically recoded into a set of dummy code variables at imputation.
+
+`ORDINAL` and `NOMINAL` are used to designate ordered and non-ordered categorical variables. Here, `score` is listed on the `ORDINAL` line. In the input data file, the values of `score` represent ordered categories of behavior (e.g., 0-1 for fail-pass on a cognitive performance item, or 1-2-3-4 for increasing frequency of a target behavior). On the `NOMINAL` line, `item` represents a non-ordered categorical variable (here, as we shall see, `item` is an indicator for the latent variable of item difficulty). Variables on the `NOMINAL` line are automatically recoded into a set of dummy code variables at imputation.
+
 ```{r BLIMP_example, echo=3:4, eval=FALSE}
 ```
-`FIXED` is used to designate complete variables (i.e., no missing data) that will be used as predictors in the regression model. In this example, `itemnum` represents item difficulty. Remember, the missing values to be imputed are item scores, not item difficulties. `itemnum` is thus a complete input variable.
 
-Including `itemnum` on the `FIXED` line instructs BLIMP to treat the underlying value as a constant. This increases computational efficiency, because BLIMP does not have to estimate the means and variances of `itemnum`.
+`FIXED` is used to designate complete variables (i.e., no missing data) that will be used as predictors in the regression model. In this example, `item` represents item difficulty. Remember, the missing values to be imputed are item scores, not item difficulties. `item` is thus a complete input variable.
 
-`CLUSTERID` designates a two-level (nested) design, with `id` (person) as the level-2 variable. In this example, on the input file, name-value pairs of `itemnum` and `score` (level-1 variables) are nested within each value of `id`. `MISSING` identifies the missing data code (`999` was coded in the input file by the R script). 
+Including `item` on the `FIXED` line instructs BLIMP to treat the underlying value as a constant. This increases computational efficiency, because BLIMP does not have to estimate the means and variances of `item`.
+
+`CLUSTERID` designates a two-level (nested) design, with `id` (person) as the level-2 variable. In this example, on the input file, name-value pairs of `item` and `score` (level-1 variables) are nested within each value of `id`. `MISSING` identifies the missing data code (`999` was coded in the input file by the R script).
+
 ```{r BLIMP_example, echo=5:7, eval=FALSE}
 ```
+
 `MODEL` specifies the regression model that will be used for imputation, using formula notation (the tilde `~` symbol) instead of an `=` sign. Three factors affect the choice of regression model:
 
-* Rate of "missingness" (percent of cells that are `NA`);
-* Precision of imputed data sets;
-* Computational efficiency.
+-   Rate of "missingness" (percent of cells that are `NA`);
+-   Precision of imputed data sets;
+-   Computational efficiency.
 
-Three commonly used regression models are summarized in the next table. These models are documented in detail in the __Appendix__.
+Three commonly used regression models are summarized in the next table. These models are documented in detail in the **Appendix**.
 
-Note the tradeoff between precision^[_Precision_ (or _accuracy_) in this context refer to the magnitude of the standard errors of the regression coefficients (intercepts and slopes) that are used to estimate the imputed values.] and efficiency. Because multiple imputation is a computationally intensive process, the use of a precise model with a large input data set can can result in a very long processing run. 
+Note the tradeoff between precision[^3] and efficiency. Because multiple imputation is a computationally intensive process, the use of a precise model with a large input data set can can result in a very long processing run.
 
-| Model                              | Precision  | Computational efficiency | Max. allowable missingness
-| ---------------------------------- | ---------- | ------------------------ | -----------------
-| `score ~`                       | Good       | High                     | 2%
-| `score ~ scalenum | scalenum`   | Better     | Intermediate             | 20%
-| `score ~ itemnum`               | Best       | Low                      | No formal limit
+[^3]: *Precision* (or *accuracy*) in this context refer to the magnitude of the standard errors of the regression coefficients (intercepts and slopes) that are used to estimate the imputed values.
 
-The recommended approach is to conduct the initial diagnostic run with the `score ~ itemnum` model, which yields the most accurate imputed output. We can then evaluate whether the resulting processing time is acceptable. If it is too lengthy, we can switch to another model.[^longnote]
+| Model                   | Precision | Computational efficiency | Max. allowable missingness |
+|-------------------------|-----------|--------------------------|----------------------------|
+| `score ~`               | Good      | High                     | 2%                         |
+| `score ~ scale | scale` | Better    | Intermediate             | 20%                        |
+| `score ~ item`          | Best      | Low                      | No formal limit            |
 
-[^longnote]: The natural question at this point is, "what constitutes a 'large' data set and an 'excessively lengthy' processing duration?" Unsurprisingly, the answer is, "it depends". As an example, we processed an input data set with about 550 columns (items) and about 1600 rows (persons), with < 2% missingness. We conducted a diagnostic run using the `score ~ itemnum` model with `BURN` set to 5000 iterations. We ran this analysis on a dedicated Windows CPU, enhanced with multiple processors and extra memory. The run lasted more than seven days.
+The recommended approach is to conduct the initial diagnostic run with the `score ~ item` model, which yields the most accurate imputed output. We can then evaluate whether the resulting processing time is acceptable. If it is too lengthy, we can switch to another model.[^4]
 
-     Because this job ran on a computer dedicated to BLIMP, it did not interfere with workflow on other machines. The analysis ran off-line, while other R&D work continued uninterrupted and unburdened by BLIMP's processing demands. Thus, when project timetables alow for lengthy processing durations, we can use the most accurate imputation model, even on a very lage data set.
-  
-    When we need quicker results, and the rate of missingness is lower, more efficient models are available. Running the same large input file with the `score ~` model, we obtained convergence in less than one hour. Because missingness was < 2%, it was appropriate to proceed with the most efficient model.
+[^4]: The natural question at this point is, "what constitutes a 'large' data set and an 'excessively lengthy' processing duration?" Unsurprisingly, the answer is, "it depends". As an example, we processed an input data set with about 550 columns (items) and about 1600 rows (persons), with \< 2% missingness. We conducted a diagnostic run using the `score ~ item` model with `BURN` set to 5000 iterations. We ran this analysis on a dedicated Windows CPU, enhanced with multiple processors and extra memory. The run lasted more than seven days.
 
-When the rate of missingness is low (e.g., < 2%), it is relatively "safe" to use the `score ~` model and trade accuracy for processing efficiency. In contrast, when the rate of missingness is high (e.g., > 20%), we must rely on the most accurate model (`score ~ itemnum`), and accept a lengthier processing time. The `score ~ scalenum | scalenum` model balances precision and efficiency, and can be used with missingness rates up to 20%
+    Because this job ran on a computer dedicated to BLIMP, it did not interfere with workflow on other machines. The analysis ran off-line, while other R&D work continued uninterrupted and unburdened by BLIMP's processing demands. Thus, when project timetables alow for lengthy processing durations, we can use the most accurate imputation model, even on a very lage data set.
 
-Returning to the example script, the `MODEL` line specifies the `score ~ itemnum` model, in which `score` is regressed on `itemnum`, the variable representing item difficulty. As noted previously, `itemnum` is recoded into a set of dummy variables by virtue of being listed on the `NOMINAL` command line. 
+    When we need quicker results, and the rate of missingness is lower, more efficient models are available. Running the same large input file with the `score ~` model, we obtained convergence in less than one hour. Because missingness was \< 2%, it was appropriate to proceed with the most efficient model.
+
+When the rate of missingness is low (e.g., \< 2%), it is relatively "safe" to use the `score ~` model and trade accuracy for processing efficiency. In contrast, when the rate of missingness is high (e.g., \> 20%), we must rely on the most accurate model (`score ~ item`), and accept a lengthier processing time. The `score ~ scale | scale` model balances precision and efficiency, and can be used with missingness rates up to 20%
+
+Returning to the example script, the `MODEL` line specifies the `score ~ item` model, in which `score` is regressed on `item`, the variable representing item difficulty. As noted previously, `item` is recoded into a set of dummy variables by virtue of being listed on the `NOMINAL` command line.
+
 ```{r BLIMP_example, echo=8, eval=FALSE}
 ```
+
 `SEED` sets BLIMP's random-number generator so that the final output is identical each time the script is run. `BURN` specifies the number of iterations that are run prior to saving the first imputed data set. As described above, `BURN` is initially set at 1000 for the diagnostic run, and this value is adjusted as needed until PSR reaches the acceptable threshold. This adjusted value is then used for the imputation run.
 
-`ITERATIONS` controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, `ITERATIONS` is set to 1. If the project required regression parameters as explicit output, `ITERATIONS` would be set to at least 1000 to ensure stable estimates.
-```{r BLIMP_example, echo=9:11, eval=FALSE}
+`ITERATIONS` controls how many iterations are run after completing burn-in. For the present purpose, which is generating an imputed data set, `ITERATIONS` is set to 1. If the project required regression parameters as explicit output, `ITERATIONS` would be set to at least 1000 to ensure stable estimates. `CHAINS` is used to specify the number of algorithmic processing chains, and the number of physical processing cores used for computation.
+
+```{r BLIMP_example, echo=9:12, eval=FALSE}
 ```
-`OPTIONS` and `SAVE` are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, `SAVE` is toggled off, and `OPTIONS` is run to generate the PSR table that is used to determine the optimal burn-in interval. For the imputation run, `OPTIONS` is toggled off, and `SAVE` is run to save the imputed data set. The `separate` argument indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file). The file name on `SAVE` requires an `*`, which allows BLIMP to append numerical suffixes on multiple imputed data files. (`*` is always used, even in this example, which yields only a single imputed data set).
-```{r BLIMP_example, echo=12:13, eval=FALSE}
+
+`NIMPS` and `SAVE` are the two BLIMP commands that are set differently for the diagnostic and imputation runs. For the diagnostic run, both are toggled off. For the imputation run, both are toggled on. `NIMPS` specifies how many imputed data sets are desired, and `SAVE` writes the files to .csv. The `separate` argument on `SAVE` indicates that each imputed data set is to be saved as a separate file (as opposed to being stacked on top of one another in a single file). The file name on `SAVE` requires an `*`, which allows BLIMP to append numerical suffixes on multiple imputed data files. (`*` is always used, even in this example, which yields only a single imputed data set).
+
+```{r BLIMP_example, echo=13:14, eval=FALSE}
 ```
 
 <br>
@@ -296,27 +328,30 @@ write_csv(temp2, here(
 <br>
 
 ###### COMMENTED SNIPPETS
+
 The imputed data file `BLIMP-output1.csv` has no column names, so `read_csv()` must be called with the `col_names = F` argument (otherwise, the first row of data will be used as column names). The imputed data file is read into an R object called `temp1`. Column names are applied to `temp1` from a character vector using `base::names()`.
+
 ```{r reformat_impute, echo=1:10, eval=FALSE}
 ```
+
 The data object `temp1` is a long table in which `item`s and their associated `score`s are nested within each person `id` number, as in the following example:
 
 ###### Before
 
-id            | item          | score
-------------- | ------------- | -------------
-1001          | i01           | 2
-1001          | i02           | 2
-1001          | i03           | 3
-1001          | i04           | 1
-1002          | i01           | 4
-1002          | i02           | 1
-1002          | i03           | 4
-1002          | i04           | 2
-1003          | i01           | 3
-1003          | i02           | 2
-1003          | i03           | 3
-1003          | i04           | 4
+| id   | item | score |
+|------|------|-------|
+| 1001 | i01  | 2     |
+| 1001 | i02  | 2     |
+| 1001 | i03  | 3     |
+| 1001 | i04  | 1     |
+| 1002 | i01  | 4     |
+| 1002 | i02  | 1     |
+| 1002 | i03  | 4     |
+| 1002 | i04  | 2     |
+| 1003 | i01  | 3     |
+| 1003 | i02  | 2     |
+| 1003 | i03  | 3     |
+| 1003 | i04  | 4     |
 
 To restore this data object to a wide format, we call `tidyr::pivot_wider()`. Its first argument `id_cols = id` collapses the multiple duplicate rows of `id` into a single row for each `id` number. `names_from = item` indicates that the values of the `item` column are used to name new columns going left-to-right across the transformed table. `values_from = score` indicates that values from the `score` column are used to fill the cells of the newly restored item columns. In the restructured table, each `id` row holds all of the item scores for a single person, as in the original input file.
 
@@ -324,11 +359,11 @@ The transformed table appears as in the example below:
 
 ###### After
 
-id            | i01           | i02           | i03           | i04
-------------- | ------------- | ------------- | ------------- | -------------
-1001          | 2             | 2             | 3             | 1
-1002          | 4             | 1             | 4             | 2
-1003          | 3             | 2             | 3             | 4
+| id   | i01 | i02 | i03 | i04 |
+|------|-----|-----|-----|-----|
+| 1001 | 2   | 2   | 3   | 1   |
+| 1002 | 4   | 1   | 4   | 2   |
+| 1003 | 3   | 2   | 3   | 4   |
 
 Thus, `pivot_wider` restores the imputed data set to the same format as original input (which contained missing data). In this sense, `pivot_wider` is the inverse of `pivot_longer`, which was used in earlier code to transform the original input into the multi-level (nested) format required by BLIMP.
 
@@ -336,129 +371,140 @@ In the remainder of this code chunk, `names()` is used to reapply the column nam
 
 ```{r reformat_impute, echo=11:28, eval=FALSE}
 ```
+
 <br>
 
 ### Appendix: Choosing a regression model
-This section provides detailed commentary on the three commonly used regression models. As noted previously, the recommended approach is to conduct the initial diagnostic run with the `score ~ itemnum` model, which yields the most accurate imputed data sets.
 
-Recall that the BLIMP input is a multilevel data set in which item-score pairs (level 1) are nested within persons (level 2). In the `score ~ itemnum` model, `itemnum` is an indicator of the latent variable of item difficulty. `score` is regressed on `itemnum`, meaning that the difficulty of a particular item predicts a person's score on that item.
+This section provides detailed commentary on the three commonly used regression models. As noted previously, the recommended approach is to conduct the initial diagnostic run with the `score ~ item` model, which yields the most accurate imputed data sets.
 
-In terms of multilevel modeling, `itemnum` is conceptualized as a fixed level-1 predictor of the level-1 outcome, `score`. Because it is fixed, `itemnum` (item difficulty) does not vary across level-2 units (persons).
+Recall that the BLIMP input is a multilevel data set in which item-score pairs (level 1) are nested within persons (level 2). In the `score ~ item` model, `item` is an indicator of the latent variable of item difficulty. `score` is regressed on `item`, meaning that the difficulty of a particular item predicts a person's score on that item.
 
-As noted previously, BLIMP analyzes this model by dummy-coding the predictor variable. For an input file with _k_ items (and thus _k_ item difficulty values), BLIMP creates _k-1_ dummy code variables. Accordingly, the model can be specified as follows:
+In terms of multilevel modeling, `item` is conceptualized as a fixed level-1 predictor of the level-1 outcome, `score`. Because it is fixed, `item` (item difficulty) does not vary across level-2 units (persons).
 
-Y~_ip_~ = (B~_0_~ + U~_p_~) + {B~_1_~(D~_1ip_~) + … + B~_k-1_~(D~_k-1ip_~)} + E~_ip_~
+As noted previously, BLIMP analyzes this model by dummy-coding the predictor variable. For an input file with *k* items (and thus *k* item difficulty values), BLIMP creates *k-1* dummy code variables. Accordingly, the model can be specified as follows:
 
-The expression within the curly braces `{}` is the _fixed_ component of the model, and the rest of the terms constitute the _random_ component of the model. In addition:
+Y~*ip*~ = (B~*0*~ + U~*p*~) + {B~*1*~(D~*1ip*~) + ... + B~*k-1*~(D~*k-1ip*~)} + E~*ip*~
 
- * Y~_ip_~: predicted score on item _i_ for person _p_;
- * B~_0_~: fixed intercept, which BLIMP sets to the mean score of item 1 across persons;
- * U~_p_~: random intercept term that captures the influence of person ability on Y~_ip_~, above and beyond the variance explained by the fixed value of item difficulty.
-    + Grouping the two intercept terms (B~_0_~ + U~_p_~) within parentheses helps to emphasize that their sum is a random quantity (i.e., this sum varies _between persons_, unlike the fixed component within curly braces, which _does not vary_ between persons.)
- * B~_1_~ ... B~_k-1_~: fixed slopes (one for each of the _k-1_ dummy variables).
-     + BLIMP sets these slopes to the difference between the mean score of item 1 (i.e., B~_0_~) and the mean score of the item represented by a specific dummy code variable. 
-     + For example, B~_5_~ = mean(item 6) - mean(item 1).
-     + These _slopes express item difficulty_, relative to the difficulty of item 1.
-     + The use of _intercept_ and _slope_ to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line described by its _y_-intercept and slope.
- * D~_1ip_~ ... D~_k-1ip_~: dummy code variables (fixed predictors in the model);
- * E~_ip_~: random error at the level of individual item scores.
- 
-We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what it means to say that a slope is _fixed_. For example, slopes B~_2_~ and B~_5_~ can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B~_2_~ is fixed because it does not vary across persons, just as the difficulty of an item is expected to remain constant as persons of differing abilities encounter that particular item.
+The expression within the curly braces `{}` is the *fixed* component of the model, and the rest of the terms constitute the *random* component of the model. In addition:
+
+-   Y~*ip*~: predicted score on item *i* for person *p*;
+
+-   B~*0*~: fixed intercept, which BLIMP sets to the mean score of item 1 across persons;
+
+-   U~*p*~: random intercept term that captures the influence of person ability on Y~*ip*~, above and beyond the variance explained by the fixed value of item difficulty.
+
+    -   Grouping the two intercept terms (B~*0*~ + U~*p*~) within parentheses helps to emphasize that their sum is a random quantity (i.e., this sum varies *between persons*, unlike the fixed component within curly braces, which *does not vary* between persons.)
+
+-   B~*1*~ ... B~*k-1*~: fixed slopes (one for each of the *k-1* dummy variables).
+
+    -   BLIMP sets these slopes to the difference between the mean score of item 1 (i.e., B~*0*~) and the mean score of the item represented by a specific dummy code variable.
+    -   For example, B~*5*~ = mean(item 6) - mean(item 1).
+    -   These *slopes express item difficulty*, relative to the difficulty of item 1.
+    -   The use of *intercept* and *slope* to refer to the item mean (and differences between item means) reflects the visualization of a linear regression model as a line described by its *y*-intercept and slope.
+
+-   D~*1ip*~ ... D~*k-1ip*~: dummy code variables (fixed predictors in the model);
+
+-   E~*ip*~: random error at the level of individual item scores.
+
+We should note that in this model, items can vary in difficulty relative to each other, but not across persons. This is what it means to say that a slope is *fixed*. For example, slopes B~*2*~ and B~*5*~ can differ from each other, reflecting real differences in item difficulties (the latent variables to which these slopes refer). But the value of B~*2*~ is fixed because it does not vary across persons, just as the difficulty of an item is expected to remain constant as persons of differing abilities encounter that particular item.
 
 More generally:
 
-* A _fixed_ slope _does not vary_ across persons.
-* A _random_ slope _may vary_ across persons.
-  + A random slope is not a constant, but rather is a distributed variable. BLIMP estimates the mean and variance of the distribution of random slopes, and these parameters summarize the extent to which the slopes differ between persons.
+-   A *fixed* slope *does not vary* across persons.
 
-The `score ~ itemnum` model yields relatively precise imputed output, because it incorporates more information from the input data file than the less-precise models. Specifically, `score ~ itemnum` is the only model that takes into account the variance in difficulties between specific items. 
+-   A *random* slope *may vary* across persons.
 
-This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., > 20%). However, the `score ~ itemnum` model is computationally intensive, and may result in unacceptably long processing times, especially when the input data set comprises more than 100 items. The remedy for this is to invoke one of the alternate models.
+    -   A random slope is not a constant, but rather is a distributed variable. BLIMP estimates the mean and variance of the distribution of random slopes, and these parameters summarize the extent to which the slopes differ between persons.
 
-When the rate of missingness is low (< 2%), we can use the `score ~` model. This is a _null_ model, so-called because it includes no predictor variables. It is analogous to a factor-analytic model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single quantity. Thus, this model diverges from the actual state of affairs in which individual items _do vary_ in difficulty.
+The `score ~ item` model yields relatively precise imputed output, because it incorporates more information from the input data file than the less-precise models. Specifically, `score ~ item` is the only model that takes into account the variance in difficulties between specific items.
+
+This model is therefore preferred in estimating missing data, especially in planned missing data designs (e.g., linked test forms) where the rate of missingness is high (e.g., \> 20%). However, the `score ~ item` model is computationally intensive, and may result in unacceptably long processing times, especially when the input data set comprises more than 100 items. The remedy for this is to invoke one of the alternate models.
+
+When the rate of missingness is low (\< 2%), we can use the `score ~` model. This is a *null* model, so-called because it includes no predictor variables. It is analogous to a factor-analytic model in which all items load on a single latent variable, with identical factor loadings. This common factor loading essentially aggregates the difficulty values of all items into a single quantity. Thus, this model diverges from the actual state of affairs in which individual items *do vary* in difficulty.
 
 Instead, the `score ~` model estimates person differences without taking into account the information represented by varying item difficulties. This leads to larger standard errors in the regression parameters that determine imputed values (i.e., a decrement in precision). When we use the `score ~` model, we are deliberately trading precision for efficiency. The `score ~` model runs quickly, even with very large data sets.
 
-Here are select lines from a BLIMP script based on the `score ~` model. Note that the `NOMINAL` and `FIXED` lines are deactivated. These lines determine how BLIMP handles predictors, and the `score ~` model has no predictors. 
-```
-VARIABLES: id itemnum score;
-ORDINAL: score;
-# NOMINAL:
-# FIXED:
-CLUSTERID: id;
-MISSING: 999;
-MODEL: score ~ ;
-```
+Here are select lines from a BLIMP script based on the `score ~` model. Note that the `NOMINAL` and `FIXED` lines are deactivated. These lines determine how BLIMP handles predictors, and the `score ~` model has no predictors.
 
-With tests that have a subscale structure, we can employ the `score ~ scalenum | scalenum` model, which incorporates subscale score as a random predictor of item score This model is a useful compromise between the more accurate, computationally intensive`score ~ itemnum` model, and the less accurate, computationally efficient `score ~ ` model.
+    VARIABLES: id item score;
+    ORDINAL: score;
+    # NOMINAL:
+    # FIXED:
+    CLUSTERID: id;
+    MISSING: 999;
+    MODEL: score ~ ;
 
-To use the `score ~ scalenum | scalenum` model, we need to code the subscale structure into the BLIMP input file. Here is an example of R code for transforming a wide-format data object into a long-format object suitable for BLIMP input. This example includes calls of `mutate()` and `case_when()` that create an integer `scale` variable to code item-to-subscale mapping.
+With tests that have a subscale structure, we can employ the `score ~ scale | scale` model, which incorporates subscale score as a random predictor of item score. This model is a useful compromise between the more accurate, computationally intensive`score ~ item` model, and the less accurate, computationally efficient `score ~` model.
 
-```
-input_long <- input_orig %>%
-  pivot_longer(cols = -ID,
-               names_to = "item",
-               values_to = "score") %>%
-  mutate(
-    scale = case_when(
-      item %in% item[1:50] ~ 1, 
-      item %in% item[51:84] ~ 2, 
-      item %in% item[85:114] ~ 3, 
-      item %in% item[115:185] ~ 4, 
-      item %in% item[186:206] ~ 5, 
-      item %in% item[207:251] ~ 6, 
-      item %in% item[252:293] ~ 7, 
-      item %in% item[294:343] ~ 8, 
-      item %in% item[344:363] ~ 9, 
-      item %in% item[364:388] ~ 10, 
-      item %in% item[389:438] ~ 11, 
-      item %in% item[439:459] ~ 12, 
-      item %in% item[460:502] ~ 13, 
-      item %in% item[503:544] ~ 14, 
-    ), 
-    across(item, ~ str_sub(., 2, 4))) %>% 
-  relocate(scale, .after = "ID")
-```
+To use the `score ~ scale | scale` model, we need to code the subscale structure into the BLIMP input file. Here is an example of R code for transforming a wide-format data object into a long-format object suitable for BLIMP input. This example includes calls of `mutate()` and `case_when()` that create an integer `scale` variable to code item-to-subscale mapping.
+
+    input_long <- input_orig %>%
+      pivot_longer(cols = -ID,
+                   names_to = "item",
+                   values_to = "score") %>%
+      mutate(
+        scale = case_when(
+          item %in% item[1:50] ~ 1, 
+          item %in% item[51:84] ~ 2, 
+          item %in% item[85:114] ~ 3, 
+          item %in% item[115:185] ~ 4, 
+          item %in% item[186:206] ~ 5, 
+          item %in% item[207:251] ~ 6, 
+          item %in% item[252:293] ~ 7, 
+          item %in% item[294:343] ~ 8, 
+          item %in% item[344:363] ~ 9, 
+          item %in% item[364:388] ~ 10, 
+          item %in% item[389:438] ~ 11, 
+          item %in% item[439:459] ~ 12, 
+          item %in% item[460:502] ~ 13, 
+          item %in% item[503:544] ~ 14, 
+        ), 
+        across(item, ~ str_sub(., 2, 4))) %>% 
+      relocate(scale, .after = "ID")
+
 Recall that in the long data format, items are nested within persons. In the first argument to `case_when()`, the predicate `item %in% item[1:50]` returns `TRUE` for the first 50 rows of items, within each person. `~ 1` indicates that these rows will be coded `1` on `scale`, to represent their assignment to the first subscale. Analogous arguments assign items to 13 additional subscales, and the coding repeats anew within each set of person rows (i.e., rows with identical values on `ID`).
 
-Once subscale assignment is coded in this manner, the BLIMP input file is ready for for processing with the `score ~  scalenum | scalenum` model. Here are select lines from a BLIMP script that includes this model.
+Once subscale assignment is coded in this manner, the BLIMP input file is ready for for processing with the `score ~  scale | scale` model. Here are select lines from a BLIMP script that includes this model.
 
-```
-VARIABLES: id scalenum itemnum score;
-ORDINAL: score;
-NOMINAL: scalenum;
-FIXED: scalenum;
-CLUSTERID: id;
-MISSING: 999;
-MODEL: score ~ scalenum | scalenum;
-```
-On the `MODEL` line, `score` is regressed on `scalenum`, and by listing `scalenum` a second time to the right of the vertical pipe `|` symbol, we designate it as a random predictor. Note that `scalenum` (instead of `itemnum`) is now entered on the `NOMINAL` and `FIXED` lines.
+    VARIABLES: id scale item score;
+    ORDINAL: score;
+    NOMINAL: scale;
+    FIXED: scale;
+    CLUSTERID: id;
+    MISSING: 999;
+    MODEL: score ~ scale | scale;
 
-In general, for a test with _k_ subscales, the `score ~ scalenum | scalenum` model is represented as:
+On the `MODEL` line, `score` is regressed on `scale`, and by listing `scale` a second time to the right of the vertical pipe `|` symbol, we designate it as a random predictor. Note that `scale` (instead of `item`) is now entered on the `NOMINAL` and `FIXED` lines.
 
-Y~_ip_~ = (B~_0_~ + U~_p_~) + (B~_1_~ + U~_1p_~)(D~_1ip_~) + … + ( B~_k-1_~ + U~_k-1p_~)(D~_k-1ip_~) + E~_ip_~
+In general, for a test with *k* subscales, the `score ~ scale | scale` model is represented as:
+
+Y~*ip*~ = (B~*0*~ + U~*p*~) + (B~*1*~ + U~*1p*~)(D~*1ip*~) + ... + ( B~*k-1*~ + U~*k-1p*~)(D~*k-1ip*~) + E~*ip*~
 
 Where:
 
- * Y~_ip_~: predicted score on item _i_ for person _p_;
- * (B~_0_~ + U~_p_~): random intercept, composed of:
-   + B~_0_~: mean score of subscale 1 across persons;
-   + U~_p_~: random term that represents person-specific ability;
- * (B~_k_~ + U~_kp_~): random slopes, composed of:
-   + B~_k_~: mean difference, across persons, between subscale 1 score and subscale _k_ score;
-   + U~_kp_~: random term that represents person-specific ability, as expressed by each person's score on subscale _k_;
- * D~_kp_~ ... D~_k-1ip_~: dummy code variables;
- * E~_ip_~: random error at the level of individual item scores.
+-   Y~*ip*~: predicted score on item *i* for person *p*;
 
-Note the absence of curly braces `{}`. Because `scalenum` is a random predictor, the resulting regression equation lacks a fixed component. As noted above, each term in the equation is made random by the inclusion of a U term that denotes person-specific ability.
+-   (B~*0*~ + U~*p*~): random intercept, composed of:
 
-The `score ~ scalenum | scalenum` model is less precise than the `score ~ itemnum` model, simply because the former does not include `itemnum` as predictor. As a result, it does not directly incorporate variance due to item difficulty into the estimate of Y~_ip_~.
+    -   B~*0*~: mean score of subscale 1 across persons;
+    -   U~*p*~: random term that represents person-specific ability;
 
-However, we can think of `scalenum` as a proxy for item difficulty. Subscale scores represent aggregate measures of the difficulties of their component items. By entering `scalenum` as a random predictor, we allow between-person variance in subscale scores to contribute to the estimate of Y~_ip_~. Thus, variance in item difficulty is incorporated indirectly, through the more coarsed-grained proxy of subscale score.
+-   (B~*k*~ + U~*kp*~): random slopes, composed of:
 
-In this way, the`score ~ scalenum | scalenum` model is more precise than the `score ~ `, which includes neither item difficulties nor subscales scores as predictors of Y~_ip_~.
+    -   B~*k*~: mean difference, across persons, between subscale 1 score and subscale *k* score;
+    -   U~*kp*~: random term that represents person-specific ability, as expressed by each person's score on subscale *k*;
 
-It may seem counterintuitive to include `scalenum` on the `FIXED` line, and then to designate it as a random predictor on the `MODEL` line. Recall, however, that the `FIXED` line tells BLIMP to treat certain _variables in the input file_ as constants, rather than estimating their means and variances. On the `MODEL` line, by contrast, we tell BLIMP whether to treat _regression coefficients_ as fixed or random. Thus, the `FIXED` and `MODEL` lines refer to different components of the analysis, and do not conflict with each other, even if the terminology suggests that they might.
+-   D~*kp*~ ... D~*k-1ip*~: dummy code variables;
 
+-   E~*ip*~: random error at the level of individual item scores.
 
+Note the absence of curly braces `{}`. Because `scale` is a random predictor, the resulting regression equation lacks a fixed component. As noted above, each term in the equation is made random by the inclusion of a U term that denotes person-specific ability.
 
+The `score ~ scale | scale` model is less precise than the `score ~ item` model, simply because the former does not include `item` as predictor. As a result, it does not directly incorporate variance due to item difficulty into the estimate of Y~*ip*~.
+
+However, we can think of `scale` as a proxy for item difficulty. Subscale scores represent aggregate measures of the difficulties of their component items. By entering `scale` as a random predictor, we allow between-person variance in subscale scores to contribute to the estimate of Y~*ip*~. Thus, variance in item difficulty is incorporated indirectly, through the more coarsed-grained proxy of subscale score.
+
+In this way, the`score ~ scale | scale` model is more precise than the `score ~`, which includes neither item difficulties nor subscales scores as predictors of Y~*ip*~.
+
+It may seem counterintuitive to include `scale` on the `FIXED` line, and then to designate it as a random predictor on the `MODEL` line. Recall, however, that the `FIXED` line tells BLIMP to treat certain *variables in the input file* as constants, rather than estimating their means and variances. On the `MODEL` line, by contrast, we tell BLIMP whether to treat *regression coefficients* as fixed or random. Thus, the `FIXED` and `MODEL` lines refer to different components of the analysis, and do not conflict with each other, even if the terminology suggests that they might.
